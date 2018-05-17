@@ -111,8 +111,8 @@ settings:
 - {id: MCG.FRDIV.scale, value: '32'}
 - {id: MCG.IREFS.sel, value: MCG.FRDIV}
 - {id: MCG.PLLS.sel, value: MCG.PLLCS}
-- {id: MCG.PRDIV.scale, value: '2', locked: true}
-- {id: MCG.VDIV.scale, value: '45', locked: true}
+- {id: MCG.PRDIV.scale, value: '2'}
+- {id: MCG.VDIV.scale, value: '45'}
 - {id: MCG_C1_IRCLKEN_CFG, value: Enabled}
 - {id: MCG_C1_IREFSTEN_CFG, value: Enabled}
 - {id: MCG_C2_OSC_MODE_CFG, value: ModeOscLowPower}
@@ -157,8 +157,10 @@ const mcg_config_t mcgConfig_BOARD_BootClockHSRUN =
         .pll0Config =
             {
                 .enableMode = MCG_PLL_DISABLE,    /* MCGPLLCLK disabled */
-                .prdiv = 0x1U,                    /* PLL Reference divider: divided by 2 */
-                .vdiv = 0x1dU,                    /* VCO divider: multiplied by 45 */
+//                .prdiv = 0x1U,                    /* PLL Reference divider: divided by 2 */
+//                .vdiv = 0x1dU,                    /* VCO divider: multiplied by 45 */
+                .prdiv = 0x0U,                    /* 240 MHz: PLL Reference divider: divided by 1 */
+                .vdiv = 0xeU,                     /* 240 MHz: VCO divider: multiplied by 30 */
             },
         .pllcs = kMCG_PllClkSelPll0,              /* PLL0 output clock is selected */
     };

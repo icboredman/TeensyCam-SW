@@ -14,7 +14,7 @@
       <validate_boot_init_only>true</validate_boot_init_only>
    </preferences>
    <tools>
-      <pins name="Pins" version="4.0" update_project_code="true">
+      <pins name="Pins" version="4.0" update_project_code="false">
          <pins_profile>
             <processor_version>3.0.1</processor_version>
             <pin_labels>
@@ -110,8 +110,8 @@
                   <setting id="MCG.FRDIV.scale" value="32" locked="false"/>
                   <setting id="MCG.IREFS.sel" value="MCG.FRDIV" locked="false"/>
                   <setting id="MCG.PLLS.sel" value="MCG.PLLCS" locked="false"/>
-                  <setting id="MCG.PRDIV.scale" value="2" locked="true"/>
-                  <setting id="MCG.VDIV.scale" value="45" locked="true"/>
+                  <setting id="MCG.PRDIV.scale" value="2" locked="false"/>
+                  <setting id="MCG.VDIV.scale" value="45" locked="false"/>
                   <setting id="MCG_C1_IRCLKEN_CFG" value="Enabled" locked="false"/>
                   <setting id="MCG_C1_IREFSTEN_CFG" value="Enabled" locked="false"/>
                   <setting id="MCG_C2_OSC_MODE_CFG" value="ModeOscLowPower" locked="false"/>
@@ -255,7 +255,7 @@
             </clock_configuration>
          </clock_configurations>
       </clocks>
-      <periphs name="Peripherals" version="1.0" update_project_code="true">
+      <periphs name="Peripherals" version="1.0" update_project_code="false">
          <dependencies>
             <dependency resourceType="SWComponent" resourceId="platform.drivers.gpio" description="GPIO Driver not found in the toolchain/IDE project." problem_level="2" source="Peripherals">
                <feature name="enabled" evaluation="equal">

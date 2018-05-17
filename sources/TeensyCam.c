@@ -71,7 +71,7 @@ int main(void) {
 
     //printf("Hello World\n");
 
-    const uint32_t cycles = 90000000;
+    const uint32_t cycles = 120000000;
 
     while(1)
     {
