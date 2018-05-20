@@ -35,43 +35,153 @@ component:
  * BOARD_InitPeripherals functional group
  **********************************************************************************************************************/
 /***********************************************************************************************************************
- * GPIO_LED initialization code
+ * FTM_SYSCLK initialization code
  **********************************************************************************************************************/
 /* clang-format off */
 /* TEXT BELOW IS USED AS SETTING FOR TOOLS *************************************
 instance:
-- name: 'GPIO_LED'
+- name: 'FTM_SYSCLK'
+- type: 'ftm'
+- mode: 'EdgeAligned'
+- type_id: 'ftm_5e037045c21cf6f361184c371dbbbab2'
+- functional_group: 'BOARD_InitPeripherals'
+- peripheral: 'FTM1'
+- config_sets:
+  - ftm_main_config:
+    - ftm_config:
+      - clockSource: 'kFTM_SystemClock'
+      - prescale: 'kFTM_Prescale_Divide_1'
+      - timerFrequency: '13300000'
+      - bdmMode: 'kFTM_BdmMode_0'
+      - pwmSyncMode: 'kFTM_SoftwareTrigger'
+      - reloadPoints: ''
+      - faultMode: 'kFTM_Fault_Disable'
+      - faultFilterValue: '0'
+      - deadTimePrescale: 'kFTM_Deadtime_Prescale_1'
+      - deadTimeValue: '0'
+      - extTriggers: ''
+      - chnlInitState: ''
+      - chnlPolarity: ''
+      - useGlobalTimeBase: 'false'
+    - timer_interrupts: ''
+    - enable_irq: 'false'
+    - ftm_interrupt:
+      - IRQn: 'FTM1_IRQn'
+      - enable_priority: 'false'
+      - enable_custom_name: 'false'
+    - EnableTimerInInit: 'true'
+  - ftm_edge_aligned_mode:
+    - ftm_edge_aligned_channels_config:
+      - 0:
+        - edge_aligned_mode: 'kFTM_EdgeAlignedPwm'
+        - edge_aligned_pwm:
+          - chnlNumber: 'kFTM_Chnl_0'
+          - level: 'kFTM_LowTrue'
+          - dutyCyclePercent: '50'
+          - enable_chan_irq: 'false'
+ * BE CAREFUL MODIFYING THIS COMMENT - IT IS YAML SETTINGS FOR TOOLS **********/
+/* clang-format on */
+const ftm_config_t FTM_SYSCLK_config = {
+  .prescale = kFTM_Prescale_Divide_1,
+  .bdmMode = kFTM_BdmMode_0,
+  .pwmSyncMode = kFTM_SoftwareTrigger,
+  .reloadPoints = 0,
+  .faultMode = kFTM_Fault_Disable,
+  .faultFilterValue = 0,
+  .deadTimePrescale = kFTM_Deadtime_Prescale_1,
+  .deadTimeValue = 0,
+  .extTriggers = 0,
+  .chnlInitState = 0,
+  .chnlPolarity = 0,
+  .useGlobalTimeBase = false
+};
+
+const ftm_chnl_pwm_signal_param_t FTM_SYSCLK_pwmSignalParams[] = { 
+  {
+    .chnlNumber = kFTM_Chnl_0,
+    .level = kFTM_LowTrue,
+    .dutyCyclePercent = 50
+  }
+};
+
+void FTM_SYSCLK_init(void) {
+  FTM_Init(FTM_SYSCLK_PERIPHERAL, &FTM_SYSCLK_config);
+  FTM_SetupPwm(FTM_SYSCLK_PERIPHERAL, FTM_SYSCLK_pwmSignalParams, sizeof(FTM_SYSCLK_pwmSignalParams) / sizeof(ftm_chnl_pwm_signal_param_t), kFTM_EdgeAlignedPwm, 13300000U, FTM_SYSCLK_CLOCK_SOURCE);
+  FTM_StartTimer(FTM_SYSCLK_PERIPHERAL, kFTM_SystemClock);
+}
+
+/***********************************************************************************************************************
+ * I2C initialization code
+ **********************************************************************************************************************/
+/* clang-format off */
+/* TEXT BELOW IS USED AS SETTING FOR TOOLS *************************************
+instance:
+- name: 'I2C'
+- type: 'i2c'
+- mode: 'I2C_Polling'
+- type_id: 'i2c_2566d7363e7e9aaedabb432110e372d7'
+- functional_group: 'BOARD_InitPeripherals'
+- peripheral: 'I2C0'
+- config_sets:
+  - fsl_i2c:
+    - i2c_mode: 'kI2C_Master'
+    - i2c_master_config:
+      - enableMaster: 'true'
+      - enableStopHold: 'false'
+      - baudRate_Bps: '100000'
+      - glitchFilterWidth: '0'
+ * BE CAREFUL MODIFYING THIS COMMENT - IT IS YAML SETTINGS FOR TOOLS **********/
+/* clang-format on */
+const i2c_master_config_t I2C_config = {
+  .enableMaster = true,
+  .enableStopHold = false,
+  .baudRate_Bps = 100000,
+  .glitchFilterWidth = 0
+};
+
+void I2C_init(void) {
+  /* Initialization function */
+  I2C_MasterInit(I2C_PERIPHERAL, &I2C_config, CLOCK_GetFreq(I2C_CLKSRC));
+}
+
+/***********************************************************************************************************************
+ * GPIO_STDBY initialization code
+ **********************************************************************************************************************/
+/* clang-format off */
+/* TEXT BELOW IS USED AS SETTING FOR TOOLS *************************************
+instance:
+- name: 'GPIO_STDBY'
 - type: 'gpio'
 - mode: 'GPIO'
 - type_id: 'gpio_f970a92e447fa4793838db25a2947ed7'
 - functional_group: 'BOARD_InitPeripherals'
-- peripheral: 'GPIOC'
+- peripheral: 'GPIOB'
 - config_sets:
   - fsl_gpio:
     - enable_irq: 'false'
     - port_interrupt:
-      - IRQn: 'PORTC_IRQn'
+      - IRQn: 'PORTB_IRQn'
       - enable_priority: 'false'
       - enable_custom_name: 'false'
     - gpio_config:
       - 0:
-        - signal_number: 'GPIO.5'
+        - signal_number: 'GPIO.16'
         - pinDirection: 'kGPIO_DigitalOutput'
         - interrupt_configuration: 'kPORT_InterruptOrDMADisabled'
         - outputLogic: '0U'
  * BE CAREFUL MODIFYING THIS COMMENT - IT IS YAML SETTINGS FOR TOOLS **********/
 /* clang-format on */
-gpio_pin_config_t GPIO_LED_config[1] = {
+gpio_pin_config_t GPIO_STDBY_config[1] = {
   {
     .pinDirection = kGPIO_DigitalOutput,
     .outputLogic = 0U
   }
 };
 
-void GPIO_LED_init(void) {
-  /* Make sure, the clock gate for port C is enabled (e. g. in pin_mux.c) */
-  /* Initialize GPIO functionality on pin PTC5 */
-  GPIO_PinInit(GPIO_LED_GPIO, 5U, &GPIO_LED_config[0]);
+void GPIO_STDBY_init(void) {
+  /* Make sure, the clock gate for port B is enabled (e. g. in pin_mux.c) */
+  /* Initialize GPIO functionality on pin PTB16 */
+  GPIO_PinInit(GPIO_STDBY_GPIO, 16U, &GPIO_STDBY_config[0]);
 }
 
 /***********************************************************************************************************************
@@ -80,7 +190,9 @@ void GPIO_LED_init(void) {
 void BOARD_InitPeripherals(void)
 {
   /* Initialize components */
-  GPIO_LED_init();
+  FTM_SYSCLK_init();
+  I2C_init();
+  GPIO_STDBY_init();
 }
 
 /***********************************************************************************************************************

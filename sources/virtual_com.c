@@ -675,3 +675,22 @@ void main(void)
     }
 }
 */
+
+usb_status_t USB_Send(uint8_t* buf, size_t len)
+{
+	usb_status_t st;
+	size_t size;
+	uint8_t* p;
+
+	do {
+		size = (len > DATA_BUFF_SIZE) ? DATA_BUFF_SIZE : len;
+		memcpy(s_currSendBuf, buf, size);
+		len -= size;
+		buf += size;
+		st = USB_DeviceCdcAcmSend(s_cdcVcom.cdcAcmHandle, USB_CDC_VCOM_BULK_IN_ENDPOINT, s_currSendBuf, size);
+		if (kStatus_USB_Success != st)
+			return st;
+	} while (len != 0);
+
+	return st;
+}

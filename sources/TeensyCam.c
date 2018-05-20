@@ -39,10 +39,15 @@
 #include "clock_config.h"
 #include "MK66F18.h"
 /* TODO: insert other include files here. */
+status_t I2C_Write16(uint8_t dev, uint8_t reg, uint16_t val);
+status_t I2C_Read16(uint8_t dev, uint8_t reg, uint16_t* val);
+#include "mt9v034.h"
+#include "usb.h"
 
 /* TODO: insert other definitions and declarations here. */
 extern void APPInit(void);
 extern void APPTask(void);
+extern usb_status_t USB_Send(uint8_t* buf, size_t len);
 
 #define ARM_DEMCR				(*(volatile uint32_t *)0xE000EDFC) // Debug Exception and Monitor Control
 #define ARM_DEMCR_TRCENA		(1 << 24)        // Enable debugging & monitoring blocks
@@ -55,6 +60,8 @@ extern void APPTask(void);
 							  ARM_DWT_CYCCNT = 0; }
 #define CLK_CNTR_VALUE		ARM_DWT_CYCCNT
 
+static const uint8_t mt1addr = 0x90;
+static const uint8_t mt2addr = 0xB0;
 
 /*
  * @brief   Application entry point.
@@ -67,11 +74,16 @@ int main(void) {
   	/* Init FSL debug console. */
 	BOARD_InitDebugConsole();
 
+	//GPIO_PinWrite(BOARD_INITPINS_STDBY_GPIO, 1u << BOARD_INITPINS_STDBY_PIN, 0);
+
 	APPInit();
 
-    //printf("Hello World\n");
+	uint16_t ver;
+	status_t st = MT9GetVersion(mt1addr, &ver);
+	char str[50];
+	sprintf(str, "ver = %d (%d)\r\n", ver, st);
 
-    const uint32_t cycles = 120000000;
+    const uint32_t cycles = 5 * 240000000;
 
     while(1)
     {
@@ -82,8 +94,52 @@ int main(void) {
     		APPTask();
     	}
 
-    	GPIO_PortToggle(BOARD_INITPINS_LED_GPIO, 1u << BOARD_INITPINS_LED_PIN);
+    	//GPIO_PortToggle(BOARD_INITPINS_LED_GPIO, 1u << BOARD_INITPINS_LED_PIN);
+
+    	st = MT9GetVersion(mt1addr, &ver);
+    	sprintf(str, "ver = %d (%d)\r\n", ver, st);
+    	USB_Send((uint8_t*)str, strlen(str));
 
     }
     return 0 ;
+}
+
+
+status_t I2C_Write16(uint8_t dev, uint8_t reg, uint16_t val)
+{
+    i2c_master_transfer_t masterXfer;
+    uint8_t g_master_txBuff[2];
+
+    *(uint16_t*)g_master_txBuff = val;
+
+    /* subAddress = 0x01, data = g_master_txBuff - write to slave.
+      start + slaveaddress(w) + subAddress + length of data buffer + data buffer + stop*/
+//    uint8_t deviceAddress = 0x01U;
+    masterXfer.slaveAddress = dev >> 1;
+    masterXfer.direction = kI2C_Write;
+    masterXfer.subaddress = (uint32_t)reg;
+    masterXfer.subaddressSize = 1;
+    masterXfer.data = g_master_txBuff;
+    masterXfer.dataSize = 2;
+    masterXfer.flags = kI2C_TransferDefaultFlag;
+
+	return I2C_MasterTransferBlocking(I2C_PERIPHERAL, &masterXfer);
+}
+
+status_t I2C_Read16(uint8_t dev, uint8_t reg, uint16_t* val)
+{
+    i2c_master_transfer_t masterXfer;
+    //uint8_t g_master_rxBuff[2];
+
+    /* subAddress = 0x01, data = g_master_rxBuff - read from slave.
+      start + slaveaddress(w) + subAddress + repeated start + slaveaddress(r) + rx data buffer + stop */
+    masterXfer.slaveAddress = dev >> 1;
+    masterXfer.direction = kI2C_Read;
+    masterXfer.subaddress = (uint32_t)reg;
+    masterXfer.subaddressSize = 1;
+    masterXfer.data = (uint8_t*)val;
+    masterXfer.dataSize = 2;
+    masterXfer.flags = kI2C_TransferDefaultFlag;
+
+    return I2C_MasterTransferBlocking(I2C_PERIPHERAL, &masterXfer);
 }

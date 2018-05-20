@@ -14,11 +14,15 @@
       <validate_boot_init_only>true</validate_boot_init_only>
    </preferences>
    <tools>
-      <pins name="Pins" version="4.0" update_project_code="false">
+      <pins name="Pins" version="4.0" update_project_code="true">
          <pins_profile>
             <processor_version>3.0.1</processor_version>
             <pin_labels>
                <pin_label pin_num="D8" pin_signal="PTC5/LLWU_P9/SPI0_SCK/LPTMR0_ALT2/I2S0_RXD0/FB_AD10/SDRAM_A18/CMP0_OUT/FTM0_CH2" label="J1[12]/I2S0_RXD0/FB_AD10/FTM0_CH2" identifier="LED"/>
+               <pin_label pin_num="K9" pin_signal="CMP2_IN0/PTA12/CAN0_TX/FTM1_CH0/RMII0_RXD1/MII0_RXD1/I2C2_SCL/I2S0_TXD0/FTM1_QD_PHA/TPM1_CH0" label="U13[12]/RMII0_RXD1" identifier="SYSCLK"/>
+               <pin_label pin_num="E10" pin_signal="TSI0_CH9/PTB16/SPI1_SOUT/UART0_RX/FTM_CLKIN0/FB_AD17/SDRAM_D17/EWM_IN/TPM_CLKIN0" label="U7[4]/UART0_RX" identifier="STDBY"/>
+               <pin_label pin_num="G11" pin_signal="ADC0_SE13/TSI0_CH8/PTB3/I2C0_SDA/UART0_CTS_b/UART0_COL_b/ENET0_1588_TMR1/SDRAM_CS0_b/FTM0_FLT0" label="J4[10]/ADC0_SE13/I2C0_SDA" identifier="I2C_SDA"/>
+               <pin_label pin_num="G12" pin_signal="ADC0_SE12/TSI0_CH7/PTB2/I2C0_SCL/UART0_RTS_b/ENET0_1588_TMR0/SDRAM_WE/FTM0_FLT3" label="J4[12]/ADC0_SE12/I2C0_SCL" identifier="I2C_SCL"/>
             </pin_labels>
          </pins_profile>
          <functions_list>
@@ -30,7 +34,17 @@
                   <enableClock>true</enableClock>
                </options>
                <dependencies>
-                  <dependency resourceType="Peripheral" resourceId="GPIOC" description="Peripheral GPIOC is not initialized" problem_level="1" source="Pins: BOARD_InitPins">
+                  <dependency resourceType="Peripheral" resourceId="FTM1" description="Peripheral FTM1 is not initialized" problem_level="1" source="Pins: BOARD_InitPins">
+                     <feature name="initialized" evaluation="">
+                        <data>true</data>
+                     </feature>
+                  </dependency>
+                  <dependency resourceType="Peripheral" resourceId="I2C0" description="Peripheral I2C0 is not initialized" problem_level="1" source="Pins: BOARD_InitPins">
+                     <feature name="initialized" evaluation="">
+                        <data>true</data>
+                     </feature>
+                  </dependency>
+                  <dependency resourceType="Peripheral" resourceId="GPIOB" description="Peripheral GPIOB is not initialized" problem_level="1" source="Pins: BOARD_InitPins">
                      <feature name="initialized" evaluation="">
                         <data>true</data>
                      </feature>
@@ -47,17 +61,35 @@
                   </dependency>
                </dependencies>
                <pins>
-                  <pin peripheral="GPIOC" signal="GPIO, 5" pin_num="D8" pin_signal="PTC5/LLWU_P9/SPI0_SCK/LPTMR0_ALT2/I2S0_RXD0/FB_AD10/SDRAM_A18/CMP0_OUT/FTM0_CH2">
+                  <pin peripheral="FTM1" signal="CH, 0" pin_num="K9" pin_signal="CMP2_IN0/PTA12/CAN0_TX/FTM1_CH0/RMII0_RXD1/MII0_RXD1/I2C2_SCL/I2S0_TXD0/FTM1_QD_PHA/TPM1_CH0">
                      <pin_features>
                         <pin_feature name="direction" value="OUTPUT"/>
-                        <pin_feature name="slew_rate" value="slow"/>
+                     </pin_features>
+                  </pin>
+                  <pin peripheral="I2C0" signal="SCL" pin_num="G12" pin_signal="ADC0_SE12/TSI0_CH7/PTB2/I2C0_SCL/UART0_RTS_b/ENET0_1588_TMR0/SDRAM_WE/FTM0_FLT3">
+                     <pin_features>
+                        <pin_feature name="open_drain" value="enable"/>
+                        <pin_feature name="pull_select" value="no_init"/>
+                        <pin_feature name="pull_enable" value="no_init"/>
+                     </pin_features>
+                  </pin>
+                  <pin peripheral="I2C0" signal="SDA" pin_num="G11" pin_signal="ADC0_SE13/TSI0_CH8/PTB3/I2C0_SDA/UART0_CTS_b/UART0_COL_b/ENET0_1588_TMR1/SDRAM_CS0_b/FTM0_FLT0">
+                     <pin_features>
+                        <pin_feature name="open_drain" value="enable"/>
+                        <pin_feature name="pull_select" value="no_init"/>
+                        <pin_feature name="pull_enable" value="no_init"/>
+                     </pin_features>
+                  </pin>
+                  <pin peripheral="GPIOB" signal="GPIO, 16" pin_num="E10" pin_signal="TSI0_CH9/PTB16/SPI1_SOUT/UART0_RX/FTM_CLKIN0/FB_AD17/SDRAM_D17/EWM_IN/TPM_CLKIN0">
+                     <pin_features>
+                        <pin_feature name="direction" value="OUTPUT"/>
                      </pin_features>
                   </pin>
                </pins>
             </function>
          </functions_list>
       </pins>
-      <clocks name="Clocks" version="4.0" update_project_code="true">
+      <clocks name="Clocks" version="4.0" update_project_code="false">
          <clocks_profile>
             <processor_version>3.0.1</processor_version>
          </clocks_profile>
@@ -255,8 +287,28 @@
             </clock_configuration>
          </clock_configurations>
       </clocks>
-      <periphs name="Peripherals" version="1.0" update_project_code="false">
+      <periphs name="Peripherals" version="1.0" update_project_code="true">
          <dependencies>
+            <dependency resourceType="SWComponent" resourceId="platform.drivers.ftm" description="FTM Driver not found in the toolchain/IDE project." problem_level="2" source="Peripherals">
+               <feature name="enabled" evaluation="equal">
+                  <data type="Boolean">true</data>
+               </feature>
+            </dependency>
+            <dependency resourceType="SWComponent" resourceId="platform.drivers.ftm" description="Unsupported version of the FTM Driver in the toolchain/IDE project. Required: ${required_value}, actual: ${actual_value}." problem_level="1" source="Peripherals">
+               <feature name="version" evaluation="compatible">
+                  <data type="Version">2.0.2</data>
+               </feature>
+            </dependency>
+            <dependency resourceType="SWComponent" resourceId="platform.drivers.i2c" description="I2C Driver not found in the toolchain/IDE project." problem_level="2" source="Peripherals">
+               <feature name="enabled" evaluation="equal">
+                  <data type="Boolean">true</data>
+               </feature>
+            </dependency>
+            <dependency resourceType="SWComponent" resourceId="platform.drivers.i2c" description="Unsupported version of the I2C Driver in the toolchain/IDE project. Required: ${required_value}, actual: ${actual_value}." problem_level="1" source="Peripherals">
+               <feature name="version" evaluation="compatible">
+                  <data type="Version">2.0.5</data>
+               </feature>
+            </dependency>
             <dependency resourceType="SWComponent" resourceId="platform.drivers.gpio" description="GPIO Driver not found in the toolchain/IDE project." problem_level="2" source="Peripherals">
                <feature name="enabled" evaluation="equal">
                   <data type="Boolean">true</data>
@@ -276,29 +328,110 @@
                <description></description>
                <options/>
                <dependencies>
-                  <dependency resourceType="PeripheralUnifiedSignal" resourceId="GPIOC.port.5" description="Signal channel 5 of the peripheral GPIOC is not routed." problem_level="1" source="Peripherals: BOARD_InitPeripherals">
+                  <dependency resourceType="PeripheralUnifiedSignal" resourceId="FTM1.tmr_ch.0" description="Signal CH0 of peripheral FTM1 is not routed" problem_level="1" source="Peripherals: BOARD_InitPeripherals">
+                     <feature name="routed" evaluation="equal">
+                        <data type="Boolean">true</data>
+                     </feature>
+                  </dependency>
+                  <dependency resourceType="PeripheralUnifiedSignal" resourceId="I2C0.i2c_scl" description="Signal serial clock of the peripheral I2C0 is not routed." problem_level="1" source="Peripherals: BOARD_InitPeripherals">
                      <feature name="routed" evaluation="">
                         <data type="Boolean">true</data>
                      </feature>
                   </dependency>
-                  <dependency resourceType="PeripheralUnifiedSignal" resourceId="GPIOC.port.5" description="Direction of channel 5 of peripheral GPIOC does not match with direction in pins tool." problem_level="1" source="Peripherals: BOARD_InitPeripherals">
+                  <dependency resourceType="PeripheralUnifiedSignal" resourceId="I2C0.i2c_sda" description="Signal serial data of the peripheral I2C0 is not routed." problem_level="1" source="Peripherals: BOARD_InitPeripherals">
+                     <feature name="routed" evaluation="">
+                        <data type="Boolean">true</data>
+                     </feature>
+                  </dependency>
+                  <dependency resourceType="PeripheralUnifiedSignal" resourceId="GPIOB.port.16" description="Signal channel 16 of the peripheral GPIOB is not routed." problem_level="1" source="Peripherals: BOARD_InitPeripherals">
+                     <feature name="routed" evaluation="">
+                        <data type="Boolean">true</data>
+                     </feature>
+                  </dependency>
+                  <dependency resourceType="PeripheralUnifiedSignal" resourceId="GPIOB.port.16" description="Direction of channel 16 of peripheral GPIOB does not match with direction in pins tool." problem_level="1" source="Peripherals: BOARD_InitPeripherals">
                      <feature name="direction" evaluation="equal">
                         <data type="String">OUTPUT</data>
                      </feature>
                   </dependency>
                </dependencies>
                <instances>
-                  <instance name="GPIO_LED" type="gpio" type_id="gpio_f970a92e447fa4793838db25a2947ed7" mode="GPIO" peripheral="GPIOC" enabled="true">
+                  <instance name="FTM_SYSCLK" type="ftm" type_id="ftm_5e037045c21cf6f361184c371dbbbab2" mode="EdgeAligned" peripheral="FTM1" enabled="true">
+                     <config_set name="ftm_main_config">
+                        <struct name="ftm_config">
+                           <setting name="clockSource" value="kFTM_SystemClock"/>
+                           <setting name="prescale" value="kFTM_Prescale_Divide_1"/>
+                           <setting name="timerFrequency" value="13300000"/>
+                           <setting name="bdmMode" value="kFTM_BdmMode_0"/>
+                           <set name="pwmSyncMode">
+                              <selected>
+                                 <id>kFTM_SoftwareTrigger</id>
+                              </selected>
+                           </set>
+                           <set name="reloadPoints">
+                              <selected/>
+                           </set>
+                           <setting name="faultMode" value="kFTM_Fault_Disable"/>
+                           <setting name="faultFilterValue" value="0"/>
+                           <setting name="deadTimePrescale" value="kFTM_Deadtime_Prescale_1"/>
+                           <setting name="deadTimeValue" value="0"/>
+                           <set name="extTriggers">
+                              <selected/>
+                           </set>
+                           <set name="chnlInitState">
+                              <selected/>
+                           </set>
+                           <set name="chnlPolarity">
+                              <selected/>
+                           </set>
+                           <setting name="useGlobalTimeBase" value="false"/>
+                        </struct>
+                        <set name="timer_interrupts">
+                           <selected/>
+                        </set>
+                        <setting name="enable_irq" value="false"/>
+                        <struct name="ftm_interrupt">
+                           <setting name="IRQn" value="FTM1_IRQn"/>
+                           <setting name="enable_priority" value="false"/>
+                           <setting name="enable_custom_name" value="false"/>
+                        </struct>
+                        <setting name="EnableTimerInInit" value="true"/>
+                     </config_set>
+                     <config_set name="ftm_edge_aligned_mode">
+                        <array name="ftm_edge_aligned_channels_config">
+                           <struct name="0">
+                              <setting name="edge_aligned_mode" value="kFTM_EdgeAlignedPwm"/>
+                              <struct name="edge_aligned_pwm">
+                                 <setting name="chnlNumber" value="kFTM_Chnl_0"/>
+                                 <setting name="level" value="kFTM_LowTrue"/>
+                                 <setting name="dutyCyclePercent" value="50"/>
+                                 <setting name="enable_chan_irq" value="false"/>
+                              </struct>
+                           </struct>
+                        </array>
+                     </config_set>
+                  </instance>
+                  <instance name="I2C" type="i2c" type_id="i2c_2566d7363e7e9aaedabb432110e372d7" mode="I2C_Polling" peripheral="I2C0" enabled="true">
+                     <config_set name="fsl_i2c">
+                        <setting name="i2c_mode" value="kI2C_Master"/>
+                        <struct name="i2c_master_config">
+                           <setting name="enableMaster" value="true"/>
+                           <setting name="enableStopHold" value="false"/>
+                           <setting name="baudRate_Bps" value="100000"/>
+                           <setting name="glitchFilterWidth" value="0"/>
+                        </struct>
+                     </config_set>
+                  </instance>
+                  <instance name="GPIO_STDBY" type="gpio" type_id="gpio_f970a92e447fa4793838db25a2947ed7" mode="GPIO" peripheral="GPIOB" enabled="true">
                      <config_set name="fsl_gpio">
                         <setting name="enable_irq" value="false"/>
                         <struct name="port_interrupt">
-                           <setting name="IRQn" value="PORTC_IRQn"/>
+                           <setting name="IRQn" value="PORTB_IRQn"/>
                            <setting name="enable_priority" value="false"/>
                            <setting name="enable_custom_name" value="false"/>
                         </struct>
                         <array name="gpio_config">
                            <struct name="0">
-                              <setting name="signal_number" value="GPIO.5"/>
+                              <setting name="signal_number" value="GPIO.16"/>
                               <setting name="pinDirection" value="kGPIO_DigitalOutput"/>
                               <setting name="interrupt_configuration" value="kPORT_InterruptOrDMADisabled"/>
                               <setting name="outputLogic" value="0U"/>

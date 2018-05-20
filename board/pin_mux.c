@@ -15,6 +15,10 @@ processor_version: 3.0.1
 board: FRDM-K66F
 pin_labels:
 - {pin_num: D8, pin_signal: PTC5/LLWU_P9/SPI0_SCK/LPTMR0_ALT2/I2S0_RXD0/FB_AD10/SDRAM_A18/CMP0_OUT/FTM0_CH2, label: 'J1[12]/I2S0_RXD0/FB_AD10/FTM0_CH2', identifier: LED}
+- {pin_num: K9, pin_signal: CMP2_IN0/PTA12/CAN0_TX/FTM1_CH0/RMII0_RXD1/MII0_RXD1/I2C2_SCL/I2S0_TXD0/FTM1_QD_PHA/TPM1_CH0, label: 'U13[12]/RMII0_RXD1', identifier: SYSCLK}
+- {pin_num: E10, pin_signal: TSI0_CH9/PTB16/SPI1_SOUT/UART0_RX/FTM_CLKIN0/FB_AD17/SDRAM_D17/EWM_IN/TPM_CLKIN0, label: 'U7[4]/UART0_RX', identifier: STDBY}
+- {pin_num: G11, pin_signal: ADC0_SE13/TSI0_CH8/PTB3/I2C0_SDA/UART0_CTS_b/UART0_COL_b/ENET0_1588_TMR1/SDRAM_CS0_b/FTM0_FLT0, label: 'J4[10]/ADC0_SE13/I2C0_SDA', identifier: I2C_SDA}
+- {pin_num: G12, pin_signal: ADC0_SE12/TSI0_CH7/PTB2/I2C0_SCL/UART0_RTS_b/ENET0_1588_TMR0/SDRAM_WE/FTM0_FLT3, label: 'J4[12]/ADC0_SE12/I2C0_SCL', identifier: I2C_SCL}
  * BE CAREFUL MODIFYING THIS COMMENT - IT IS YAML SETTINGS FOR TOOLS ***********
  */
 /* clang-format on */
@@ -40,8 +44,12 @@ void BOARD_InitBootPins(void)
 BOARD_InitPins:
 - options: {callFromInitBoot: 'true', coreID: core0, enableClock: 'true'}
 - pin_list:
-  - {pin_num: D8, peripheral: GPIOC, signal: 'GPIO, 5', pin_signal: PTC5/LLWU_P9/SPI0_SCK/LPTMR0_ALT2/I2S0_RXD0/FB_AD10/SDRAM_A18/CMP0_OUT/FTM0_CH2, direction: OUTPUT,
-    slew_rate: slow}
+  - {pin_num: K9, peripheral: FTM1, signal: 'CH, 0', pin_signal: CMP2_IN0/PTA12/CAN0_TX/FTM1_CH0/RMII0_RXD1/MII0_RXD1/I2C2_SCL/I2S0_TXD0/FTM1_QD_PHA/TPM1_CH0, direction: OUTPUT}
+  - {pin_num: G12, peripheral: I2C0, signal: SCL, pin_signal: ADC0_SE12/TSI0_CH7/PTB2/I2C0_SCL/UART0_RTS_b/ENET0_1588_TMR0/SDRAM_WE/FTM0_FLT3, open_drain: enable,
+    pull_select: no_init, pull_enable: no_init}
+  - {pin_num: G11, peripheral: I2C0, signal: SDA, pin_signal: ADC0_SE13/TSI0_CH8/PTB3/I2C0_SDA/UART0_CTS_b/UART0_COL_b/ENET0_1588_TMR1/SDRAM_CS0_b/FTM0_FLT0, open_drain: enable,
+    pull_select: no_init, pull_enable: no_init}
+  - {pin_num: E10, peripheral: GPIOB, signal: 'GPIO, 16', pin_signal: TSI0_CH9/PTB16/SPI1_SOUT/UART0_RX/FTM_CLKIN0/FB_AD17/SDRAM_D17/EWM_IN/TPM_CLKIN0, direction: OUTPUT}
  * BE CAREFUL MODIFYING THIS COMMENT - IT IS YAML SETTINGS FOR TOOLS ***********
  */
 /* clang-format on */
@@ -54,19 +62,45 @@ BOARD_InitPins:
  * END ****************************************************************************************************************/
 void BOARD_InitPins(void)
 {
-    /* Port C Clock Gate Control: Clock enabled */
-    CLOCK_EnableClock(kCLOCK_PortC);
+    /* Port A Clock Gate Control: Clock enabled */
+    CLOCK_EnableClock(kCLOCK_PortA);
+    /* Port B Clock Gate Control: Clock enabled */
+    CLOCK_EnableClock(kCLOCK_PortB);
 
-    /* PORTC5 (pin D8) is configured as PTC5 */
-    PORT_SetPinMux(BOARD_INITPINS_LED_PORT, BOARD_INITPINS_LED_PIN, kPORT_MuxAsGpio);
+    /* PORTA12 (pin K9) is configured as FTM1_CH0 */
+    PORT_SetPinMux(BOARD_INITPINS_SYSCLK_PORT, BOARD_INITPINS_SYSCLK_PIN, kPORT_MuxAlt3);
 
-    PORTC->PCR[5] = ((PORTC->PCR[5] &
+    /* PORTB16 (pin E10) is configured as PTB16 */
+    PORT_SetPinMux(BOARD_INITPINS_STDBY_PORT, BOARD_INITPINS_STDBY_PIN, kPORT_MuxAsGpio);
+
+    /* PORTB2 (pin G12) is configured as I2C0_SCL */
+    PORT_SetPinMux(BOARD_INITPINS_I2C_SCL_PORT, BOARD_INITPINS_I2C_SCL_PIN, kPORT_MuxAlt2);
+
+    PORTB->PCR[2] = ((PORTB->PCR[2] &
                       /* Mask bits to zero which are setting */
-                      (~(PORT_PCR_SRE_MASK | PORT_PCR_ISF_MASK)))
+                      (~(PORT_PCR_ODE_MASK | PORT_PCR_ISF_MASK)))
 
-                     /* Slew Rate Enable: Slow slew rate is configured on the corresponding pin, if the pin is
+                     /* Open Drain Enable: Open drain output is enabled on the corresponding pin, if the pin is
                       * configured as a digital output. */
-                     | PORT_PCR_SRE(kPORT_SlowSlewRate));
+                     | PORT_PCR_ODE(kPORT_OpenDrainEnable));
+
+    /* PORTB3 (pin G11) is configured as I2C0_SDA */
+    PORT_SetPinMux(BOARD_INITPINS_I2C_SDA_PORT, BOARD_INITPINS_I2C_SDA_PIN, kPORT_MuxAlt2);
+
+    PORTB->PCR[3] = ((PORTB->PCR[3] &
+                      /* Mask bits to zero which are setting */
+                      (~(PORT_PCR_ODE_MASK | PORT_PCR_ISF_MASK)))
+
+                     /* Open Drain Enable: Open drain output is enabled on the corresponding pin, if the pin is
+                      * configured as a digital output. */
+                     | PORT_PCR_ODE(kPORT_OpenDrainEnable));
+
+    SIM->SOPT4 = ((SIM->SOPT4 &
+                   /* Mask bits to zero which are setting */
+                   (~(SIM_SOPT4_FTM1CH0SRC_MASK)))
+
+                  /* FTM1 channel 0 input capture source select: FTM1_CH0 signal. */
+                  | SIM_SOPT4_FTM1CH0SRC(SOPT4_FTM1CH0SRC_FTM));
 }
 /***********************************************************************************************************************
  * EOF

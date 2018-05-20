@@ -37,20 +37,57 @@ extern "C" {
  */
 void BOARD_InitBootPins(void);
 
-/*! @name PORTC5 (coord D8), J1[12]/I2S0_RXD0/FB_AD10/FTM0_CH2
+#define SOPT4_FTM1CH0SRC_FTM 0x00u /*!<@brief FTM1 channel 0 input capture source select: FTM1_CH0 signal */
+
+/*! @name PORTA12 (coord K9), U13[12]/RMII0_RXD1
   @{ */
-#define BOARD_INITPINS_LED_PERIPHERAL GPIOC                          /*!<@brief Device name: GPIOC */
-#define BOARD_INITPINS_LED_SIGNAL GPIO                               /*!<@brief GPIOC signal: GPIO */
-#define BOARD_INITPINS_LED_GPIO GPIOC                                /*!<@brief GPIO device name: GPIOC */
-#define BOARD_INITPINS_LED_GPIO_PIN 5U                               /*!<@brief PORTC pin index: 5 */
-#define BOARD_INITPINS_LED_PORT PORTC                                /*!<@brief PORT device name: PORTC */
-#define BOARD_INITPINS_LED_PIN 5U                                    /*!<@brief PORTC pin index: 5 */
-#define BOARD_INITPINS_LED_CHANNEL 5                                 /*!<@brief GPIOC GPIO channel: 5 */
-#define BOARD_INITPINS_LED_PIN_NAME PTC5                             /*!<@brief Pin name */
-#define BOARD_INITPINS_LED_LABEL "J1[12]/I2S0_RXD0/FB_AD10/FTM0_CH2" /*!<@brief Label */
-#define BOARD_INITPINS_LED_NAME "LED"                                /*!<@brief Identifier name */
-#define BOARD_INITPINS_LED_DIRECTION kPIN_MUX_DirectionOutput        /*!<@brief Direction */
-                                                                     /* @} */
+#define BOARD_INITPINS_SYSCLK_PERIPHERAL FTM1                    /*!<@brief Device name: FTM1 */
+#define BOARD_INITPINS_SYSCLK_SIGNAL CH                          /*!<@brief FTM1 signal: CH */
+#define BOARD_INITPINS_SYSCLK_PORT PORTA                         /*!<@brief PORT device name: PORTA */
+#define BOARD_INITPINS_SYSCLK_PIN 12U                            /*!<@brief PORTA pin index: 12 */
+#define BOARD_INITPINS_SYSCLK_CHANNEL 0                          /*!<@brief FTM1 channel: 0 */
+#define BOARD_INITPINS_SYSCLK_PIN_NAME FTM1_CH0                  /*!<@brief Pin name */
+#define BOARD_INITPINS_SYSCLK_LABEL "U13[12]/RMII0_RXD1"         /*!<@brief Label */
+#define BOARD_INITPINS_SYSCLK_NAME "SYSCLK"                      /*!<@brief Identifier name */
+#define BOARD_INITPINS_SYSCLK_DIRECTION kPIN_MUX_DirectionOutput /*!<@brief Direction */
+                                                                 /* @} */
+
+/*! @name PORTB2 (coord G12), J4[12]/ADC0_SE12/I2C0_SCL
+  @{ */
+#define BOARD_INITPINS_I2C_SCL_PERIPHERAL I2C0                   /*!<@brief Device name: I2C0 */
+#define BOARD_INITPINS_I2C_SCL_SIGNAL SCL                        /*!<@brief I2C0 signal: SCL */
+#define BOARD_INITPINS_I2C_SCL_PORT PORTB                        /*!<@brief PORT device name: PORTB */
+#define BOARD_INITPINS_I2C_SCL_PIN 2U                            /*!<@brief PORTB pin index: 2 */
+#define BOARD_INITPINS_I2C_SCL_PIN_NAME I2C0_SCL                 /*!<@brief Pin name */
+#define BOARD_INITPINS_I2C_SCL_LABEL "J4[12]/ADC0_SE12/I2C0_SCL" /*!<@brief Label */
+#define BOARD_INITPINS_I2C_SCL_NAME "I2C_SCL"                    /*!<@brief Identifier name */
+                                                                 /* @} */
+
+/*! @name PORTB3 (coord G11), J4[10]/ADC0_SE13/I2C0_SDA
+  @{ */
+#define BOARD_INITPINS_I2C_SDA_PERIPHERAL I2C0                   /*!<@brief Device name: I2C0 */
+#define BOARD_INITPINS_I2C_SDA_SIGNAL SDA                        /*!<@brief I2C0 signal: SDA */
+#define BOARD_INITPINS_I2C_SDA_PORT PORTB                        /*!<@brief PORT device name: PORTB */
+#define BOARD_INITPINS_I2C_SDA_PIN 3U                            /*!<@brief PORTB pin index: 3 */
+#define BOARD_INITPINS_I2C_SDA_PIN_NAME I2C0_SDA                 /*!<@brief Pin name */
+#define BOARD_INITPINS_I2C_SDA_LABEL "J4[10]/ADC0_SE13/I2C0_SDA" /*!<@brief Label */
+#define BOARD_INITPINS_I2C_SDA_NAME "I2C_SDA"                    /*!<@brief Identifier name */
+                                                                 /* @} */
+
+/*! @name PORTB16 (coord E10), U7[4]/UART0_RX
+  @{ */
+#define BOARD_INITPINS_STDBY_PERIPHERAL GPIOB                   /*!<@brief Device name: GPIOB */
+#define BOARD_INITPINS_STDBY_SIGNAL GPIO                        /*!<@brief GPIOB signal: GPIO */
+#define BOARD_INITPINS_STDBY_GPIO GPIOB                         /*!<@brief GPIO device name: GPIOB */
+#define BOARD_INITPINS_STDBY_GPIO_PIN 16U                       /*!<@brief PORTB pin index: 16 */
+#define BOARD_INITPINS_STDBY_PORT PORTB                         /*!<@brief PORT device name: PORTB */
+#define BOARD_INITPINS_STDBY_PIN 16U                            /*!<@brief PORTB pin index: 16 */
+#define BOARD_INITPINS_STDBY_CHANNEL 16                         /*!<@brief GPIOB GPIO channel: 16 */
+#define BOARD_INITPINS_STDBY_PIN_NAME PTB16                     /*!<@brief Pin name */
+#define BOARD_INITPINS_STDBY_LABEL "U7[4]/UART0_RX"             /*!<@brief Label */
+#define BOARD_INITPINS_STDBY_NAME "STDBY"                       /*!<@brief Identifier name */
+#define BOARD_INITPINS_STDBY_DIRECTION kPIN_MUX_DirectionOutput /*!<@brief Direction */
+                                                                /* @} */
 
 /*!
  * @brief Configures pin routing and optionally pin electrical features.
