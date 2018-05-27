@@ -680,7 +680,6 @@ usb_status_t USB_Send(uint8_t* buf, size_t len)
 {
 	usb_status_t st;
 	size_t size;
-	uint8_t* p;
 
 	do {
 		size = (len > DATA_BUFF_SIZE) ? DATA_BUFF_SIZE : len;

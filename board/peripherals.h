@@ -10,11 +10,11 @@
  * Included files
  **********************************************************************************************************************/
 #include "fsl_common.h"
-#include "fsl_clock.h"
-#include "fsl_ftm.h"
 #include "fsl_i2c.h"
 #include "fsl_gpio.h"
 #include "fsl_port.h"
+#include "fsl_clock.h"
+#include "fsl_ftm.h"
 
 #if defined(__cplusplus)
 extern "C" {
@@ -24,28 +24,37 @@ extern "C" {
  * Definitions
  **********************************************************************************************************************/
 /* Definitions for BOARD_InitPeripherals functional group */
-/* Definition of peripheral ID */
-#define FTM_SYSCLK_PERIPHERAL FTM1
-/* Definition of the clock source frequency */
-#define FTM_SYSCLK_CLOCK_SOURCE CLOCK_GetFreq(kCLOCK_BusClk)
-/* FTM_SYSCLK interrupt vector ID (number). */
-#define FTM_SYSCLK_IRQN FTM1_IRQn
-/* FTM_SYSCLK interrupt handler identifier. */
-#define FTM_SYSCLK_IRQHANDLER FTM1_IRQHandler
 /* BOARD_InitPeripherals defines for I2C0 */
 /* Definition of peripheral ID */
 #define I2C_PERIPHERAL I2C0
 /* Definition of the clock source */
 #define I2C_CLKSRC I2C0_CLK_SRC
+/* Alias for GPIOC peripheral */
+#define BUS_C_GPIO GPIOC
+/* Alias for GPIOD peripheral */
+#define BUS_D_GPIO GPIOD
 /* Alias for GPIOB peripheral */
-#define GPIO_STDBY_GPIO GPIOB
+#define OUTPUTS_GPIO GPIOB
+/* Alias for GPIOA peripheral */
+#define INPUTS_GPIO GPIOA
+/* Definition of peripheral ID */
+#define SYSCLK_PERIPHERAL FTM1
+/* Definition of the clock source frequency */
+#define SYSCLK_CLOCK_SOURCE CLOCK_GetFreq(kCLOCK_BusClk)
+/* SYSCLK interrupt vector ID (number). */
+#define SYSCLK_IRQN FTM1_IRQn
+/* SYSCLK interrupt handler identifier. */
+#define SYSCLK_IRQHANDLER FTM1_IRQHandler
 
 /***********************************************************************************************************************
  * Global variables
  **********************************************************************************************************************/
-extern const ftm_config_t FTM_SYSCLK_config;
 extern const i2c_master_config_t I2C_config;
-extern gpio_pin_config_t GPIO_STDBY_config[1];
+extern gpio_pin_config_t BUS_C_config[12];
+extern gpio_pin_config_t BUS_D_config[12];
+extern gpio_pin_config_t OUTPUTS_config[5];
+extern gpio_pin_config_t INPUTS_config[6];
+extern const ftm_config_t SYSCLK_config;
 
 /***********************************************************************************************************************
  * Initialization functions

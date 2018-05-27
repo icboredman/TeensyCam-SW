@@ -49,19 +49,33 @@ extern void APPInit(void);
 extern void APPTask(void);
 extern usb_status_t USB_Send(uint8_t* buf, size_t len);
 
+static void PulsePins(uint32_t pin, uint32_t cnt);
+static bool ReadCameraLine(uint16_t *a, uint16_t *b, uint16_t px);
+
 #define ARM_DEMCR				(*(volatile uint32_t *)0xE000EDFC) // Debug Exception and Monitor Control
 #define ARM_DEMCR_TRCENA		(1 << 24)        // Enable debugging & monitoring blocks
 #define ARM_DWT_CTRL			(*(volatile uint32_t *)0xE0001000) // DWT control register
 #define ARM_DWT_CTRL_CYCCNTENA	(1 << 0)                // Enable cycle count
 #define ARM_DWT_CYCCNT			(*(volatile uint32_t *)0xE0001004) // Cycle count register
 
-#define CLK_CNTR_RESET()	{ ARM_DEMCR |= ARM_DEMCR_TRCENA;	\
-							  ARM_DWT_CTRL |= ARM_DWT_CTRL_CYCCNTENA; \
-							  ARM_DWT_CYCCNT = 0; }
-#define CLK_CNTR_VALUE		ARM_DWT_CYCCNT
+#define CLK_CNTR_RESET()		{ ARM_DEMCR |= ARM_DEMCR_TRCENA;	\
+							  	  ARM_DWT_CTRL |= ARM_DWT_CTRL_CYCCNTENA; \
+							  	  ARM_DWT_CYCCNT = 0; }
+#define CLK_CNTR_VALUE		  	ARM_DWT_CYCCNT
+#define CLK_CNTR_DELAY_US(us)	{ CLK_CNTR_RESET();		\
+								  while(CLK_CNTR_VALUE < us*(BOARD_BOOTCLOCKHSRUN_CORE_CLOCK/1000000)){} }
+
+#define PORT_CAM1	(GPIOC->PDIR)
+#define PORT_CAM2	(GPIOD->PDIR)
 
 static const uint8_t mt1addr = 0x90;
 static const uint8_t mt2addr = 0xB0;
+
+uint16_t exposure_us = 10000;	// up to 16383 us
+uint8_t analogGain = 16;		// 16 - 64
+uint8_t digitalGain = 4;		// 0 - 15
+uint16_t n_lines = MAX_IMAGE_HEIGHT;
+
 
 /*
  * @brief   Application entry point.
@@ -74,47 +88,186 @@ int main(void) {
   	/* Init FSL debug console. */
 	BOARD_InitDebugConsole();
 
-	//GPIO_PinWrite(BOARD_INITPINS_STDBY_GPIO, 1u << BOARD_INITPINS_STDBY_PIN, 0);
+	GPIO_PinWrite(OUTPUTS_GPIO, BOARD_INITPINS_STANDBY_PIN, 0);
 
 	APPInit();
 
-	uint16_t ver;
-	status_t st = MT9GetVersion(mt1addr, &ver);
-	char str[50];
-	sprintf(str, "ver = %d (%d)\r\n", ver, st);
+	CLK_CNTR_DELAY_US(1000000);
 
-    const uint32_t cycles = 5 * 240000000;
+    // configure camera slave mode
+    status_t st = MT9Initialize(mt1addr);
+    st += MT9Initialize(mt2addr);
+    st += MT9SetAGC(mt1addr, false);
+    st += MT9SetAGC(mt2addr, false);
+    st += MT9SetCompanding(mt1addr, true);
+    st += MT9SetCompanding(mt2addr, true);
+
+    char str[100];
+    sprintf(str, "init status=%d\r\n", st);
+    USB_Send((uint8_t*)str, strlen(str));
 
     while(1)
     {
-    	CLK_CNTR_RESET();
+        uint16_t ln_cnt = 0;
+        uint16_t nv_cnt = 0;
+        uint16_t zr_cnt = 0;
 
-    	while (CLK_CNTR_VALUE < cycles)
-    	{
-    		APPTask();
-    	}
+        uint16_t a[MAX_IMAGE_WIDTH], b[MAX_IMAGE_WIDTH];
 
-    	//GPIO_PortToggle(BOARD_INITPINS_LED_GPIO, 1u << BOARD_INITPINS_LED_PIN);
+        PulsePins(BOARD_INITPINS_EXPOSURE_PIN, 50);
+        CLK_CNTR_DELAY_US(exposure_us++);
+        PulsePins(BOARD_INITPINS_STFRM_OUT_PIN, 50);
 
-    	st = MT9GetVersion(mt1addr, &ver);
-    	sprintf(str, "ver = %d (%d)\r\n", ver, st);
-    	USB_Send((uint8_t*)str, strlen(str));
+        for (int ln=0; ln<530; ln++)   // min 525 lines, including blanking
+        {
+            PulsePins(BOARD_INITPINS_STLN_OUT1_PIN, 50);
 
+            if( ReadCameraLine(a, b, MAX_IMAGE_WIDTH) )
+            {	// make sure last data point contains valid line and frame markers
+				if( (a[0]>>10) != 0x3 || (b[0]>>10) != 0xC )
+					zr_cnt++;
+				else
+					if( (ln_cnt >= MAX_IMAGE_HEIGHT/2 - n_lines/2) &&
+						(ln_cnt <  MAX_IMAGE_HEIGHT/2 + n_lines/2) )//&& send_picture_data && second_frame )
+					{	// send data out on every second frame (seems to improve noise)
+//						SendLine(0, ln_cnt, a, MAX_IMAGE_WIDTH);
+//						SendLine(1, ln_cnt, b, MAX_IMAGE_WIDTH);
+					}
+
+				ln_cnt++;
+			}
+			else
+				nv_cnt++;
+        }
+
+        char str[100];
+        sprintf(str, "zr=%d  ln=%d  nv=%d\r\n", zr_cnt, ln_cnt, nv_cnt);
+        USB_Send((uint8_t*)str, strlen(str));
+
+        CLK_CNTR_DELAY_US(100000);
     }
+
     return 0 ;
 }
 
+
+
+
+
+/***************************************************
+ * Utility Functions
+ ***************************************************/
+
+static __attribute__ ((noinline)) void PulsePins(uint32_t pin, uint32_t cnt)
+{
+	GPIO_PinWrite(OUTPUTS_GPIO, pin, 1);
+
+    while( cnt != 0 )
+    {
+        if (GPIO_PinRead(INPUTS_GPIO, BOARD_INITPINS_PIXCLK1_PIN))
+            cnt--;
+    }
+
+    GPIO_PinWrite(OUTPUTS_GPIO, pin, 0);
+}
+
+
+static bool ReadCameraLine(uint16_t *a, uint16_t *b, uint16_t px)
+{
+	//  int px = 750;  // max (752-1)
+	px -= 2;
+
+	__disable_irq();
+
+	// PIXCLKs between STLN_OUT1 pulses
+	// need about 60 extra pulses before LINE_VALID, so min is 752 + 60 = 812
+	int cnt = 820;
+	// if no LINE_VALID, simply count PIXCLKs until it's time for next STLN_OUT pulse
+	while ( ! GPIO_PinRead(INPUTS_GPIO, BOARD_INITPINS_LNVAL1_PIN) )
+	{	// count PIXCLKs
+		if ( GPIO_PinRead(INPUTS_GPIO, BOARD_INITPINS_PIXCLK1_PIN) )
+		{
+			if (--cnt == 0)
+			{
+				__enable_irq();
+				return false;
+			}
+		}
+	}
+
+	// capture one line of data
+    while (1)
+    {	// sample data on low level of PIXCLK (first pixel may be lost)
+        if ( ! GPIO_PinRead(INPUTS_GPIO, BOARD_INITPINS_PIXCLK1_PIN) )
+        {
+            register uint16_t d1 = PORT_CAM1;
+            register uint16_t d2 = PORT_CAM2;
+            a[px] = d1;
+            b[px] = d2;
+            if( px-- == 0 )
+                break;
+        }
+    }
+
+	__enable_irq();
+	return true;
+}
+
+
+/*
+void InitSysTick(void)
+{
+	SysTick->LOAD = SysTick_LOAD_RELOAD_Msk;                                 // temporarily set maximum reload value
+	SysTick->VAL = SysTick_LOAD_RELOAD_Msk;                                // write to the current value to cause the counter value to be reset to 0 and the reload value be set
+    (void)SysTick->CTRL;                                                   // ensure that the SYSTICK_COUNTFLAG flag is cleared
+    SysTick->CTRL = (SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_ENABLE_Msk);                 // allow SYSTICK to run so that loop delays can already use it
+}
+
+void __attribute__ ((noinline)) DelayLoop(unsigned long ulDelay_us)
+{
+	#define CORE_US (BOARD_BOOTCLOCKHSRUN_CORE_CLOCK/1000000)                                 // the number of core clocks in a us
+	register unsigned long ulPresentSystick;
+	register unsigned long ulMatch;
+	register unsigned long _ulDelay_us = ulDelay_us;                     // ensure that the compiler puts the variable in a register rather than work with it on the stack
+	if (_ulDelay_us == 0) {                                              // minimum delay is 1us
+		_ulDelay_us = 1;
+	}
+	(void)SysTick->CTRL;                                                 // clear the SysTick reload flag
+	ulMatch = (SysTick->VAL - CORE_US);	                                 // next 1us match value (SysTick counts down)
+	do {
+		while ((ulPresentSystick = SysTick->VAL) > ulMatch) {            // wait until a us period has expired
+			if (SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk) {            // if we missed a reload
+				(void)SysTick->CTRL;
+				break;                                                   // assume a us period expired
+			}
+		}
+		ulMatch = (ulPresentSystick - CORE_US);
+	} while (--_ulDelay_us);
+
+//	register unsigned long _ulDelay_us = ulDelay_us;                     // ensure that the compiler puts the variable in a register rather than work with it on the stack
+//    register unsigned long ul_us;
+//    while (_ulDelay_us--) {                                              // for each us required
+//        ul_us = (240000000/6000000);//(BOARD_BOOTCLOCKHSRUN_CORE_CLOCK/6000000);               // tuned but may be slightly compiler dependent - interrupt processing may increase delay
+//        while (ul_us--) {}                                               // simple loop tuned to perform us timing
+//    }
+}
+*/
+
+
+/***************************************************
+ * I2C Functions
+ ***************************************************/
 
 status_t I2C_Write16(uint8_t dev, uint8_t reg, uint16_t val)
 {
     i2c_master_transfer_t masterXfer;
     uint8_t g_master_txBuff[2];
 
-    *(uint16_t*)g_master_txBuff = val;
+    g_master_txBuff[0] = val >> 8;
+    g_master_txBuff[1] = val & 0xFF;
 
     /* subAddress = 0x01, data = g_master_txBuff - write to slave.
       start + slaveaddress(w) + subAddress + length of data buffer + data buffer + stop*/
-//    uint8_t deviceAddress = 0x01U;
     masterXfer.slaveAddress = dev >> 1;
     masterXfer.direction = kI2C_Write;
     masterXfer.subaddress = (uint32_t)reg;
@@ -129,7 +282,7 @@ status_t I2C_Write16(uint8_t dev, uint8_t reg, uint16_t val)
 status_t I2C_Read16(uint8_t dev, uint8_t reg, uint16_t* val)
 {
     i2c_master_transfer_t masterXfer;
-    //uint8_t g_master_rxBuff[2];
+    uint8_t g_master_rxBuff[2];
 
     /* subAddress = 0x01, data = g_master_rxBuff - read from slave.
       start + slaveaddress(w) + subAddress + repeated start + slaveaddress(r) + rx data buffer + stop */
@@ -137,9 +290,14 @@ status_t I2C_Read16(uint8_t dev, uint8_t reg, uint16_t* val)
     masterXfer.direction = kI2C_Read;
     masterXfer.subaddress = (uint32_t)reg;
     masterXfer.subaddressSize = 1;
-    masterXfer.data = (uint8_t*)val;
+    masterXfer.data = g_master_rxBuff;
     masterXfer.dataSize = 2;
     masterXfer.flags = kI2C_TransferDefaultFlag;
 
-    return I2C_MasterTransferBlocking(I2C_PERIPHERAL, &masterXfer);
+    status_t st = I2C_MasterTransferBlocking(I2C_PERIPHERAL, &masterXfer);
+
+    if (kStatus_Success == st)
+    	*val = (g_master_rxBuff[0] << 8) | g_master_rxBuff[1];
+
+    return st;
 }
