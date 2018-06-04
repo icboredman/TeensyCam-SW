@@ -82,6 +82,8 @@ void BOARD_DbgConsole_Init(void);
 usb_status_t USB_DeviceCdcVcomCallback(class_handle_t handle, uint32_t event, void *param);
 usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event, void *param);
 
+usb_status_t USB_CheckBusy(void);
+
 /*******************************************************************************
 * Variables
 ******************************************************************************/
@@ -676,20 +678,73 @@ void main(void)
 }
 */
 
+
 usb_status_t USB_Send(uint8_t* buf, size_t len)
 {
 	usb_status_t st;
 	size_t size;
 
-	do {
+	while (len != 0)
+	{
+		// wait until not busy:
+		while (kStatus_USB_Success != (st=USB_CheckBusy()))
+		{
+			if (kStatus_USB_Busy != st)
+				return st;
+		}
 		size = (len > DATA_BUFF_SIZE) ? DATA_BUFF_SIZE : len;
 		memcpy(s_currSendBuf, buf, size);
+		if (kStatus_USB_Success != (st=USB_DeviceCdcAcmSend(s_cdcVcom.cdcAcmHandle, USB_CDC_VCOM_BULK_IN_ENDPOINT, s_currSendBuf, size)))
+		{
+			return st;
+		}
 		len -= size;
 		buf += size;
-		st = USB_DeviceCdcAcmSend(s_cdcVcom.cdcAcmHandle, USB_CDC_VCOM_BULK_IN_ENDPOINT, s_currSendBuf, size);
-		if (kStatus_USB_Success != st)
-			return st;
-	} while (len != 0);
+	}
 
 	return st;
+}
+
+usb_status_t USB_CheckBusy()
+{
+	class_handle_t handle = s_cdcVcom.cdcAcmHandle;
+	uint8_t ep = USB_CDC_VCOM_BULK_IN_ENDPOINT;
+
+    usb_device_cdc_acm_struct_t *cdcAcmHandle;
+    usb_device_cdc_acm_pipe_t *cdcAcmPipe = NULL;
+
+    if (!handle)
+    {
+        return kStatus_USB_InvalidHandle;
+    }
+    cdcAcmHandle = (usb_device_cdc_acm_struct_t *)handle;
+
+    if (cdcAcmHandle->bulkIn.ep == ep)
+    {
+        cdcAcmPipe = &(cdcAcmHandle->bulkIn);
+    }
+    else if (cdcAcmHandle->interruptIn.ep == ep)
+    {
+        cdcAcmPipe = &(cdcAcmHandle->interruptIn);
+    }
+    else
+    {
+    }
+
+    if (NULL == cdcAcmPipe)
+    {
+    	return kStatus_USB_Error;
+    }
+
+//	USB_CDC_ACM_ENTER_CRITICAL();
+    if (1 == cdcAcmPipe->isBusy)
+    {
+//    	USB_CDC_ACM_EXIT_CRITICAL();
+    	return kStatus_USB_Busy;
+    }
+    else
+    {
+//    	USB_CDC_ACM_EXIT_CRITICAL();
+    	return kStatus_USB_Success;
+    }
 }

@@ -48,9 +48,15 @@ status_t I2C_Read16(uint8_t dev, uint8_t reg, uint16_t* val);
 extern void APPInit(void);
 extern void APPTask(void);
 extern usb_status_t USB_Send(uint8_t* buf, size_t len);
+extern usb_status_t USB_CheckBusy(void);
 
 static void PulsePins(uint32_t pin, uint32_t cnt);
 static bool ReadCameraLine(uint16_t *a, uint16_t *b, uint16_t px);
+
+static void SendLine(uint16_t line, uint16_t *data1, uint16_t *data2, uint16_t dataSize);
+static void Pack8bits(uint8_t *dstByte, uint16_t *srcWord, size_t srcLength);
+static void Pack10bits(uint8_t *dstByte, uint16_t *srcWord, size_t srcLength);
+
 
 #define ARM_DEMCR				(*(volatile uint32_t *)0xE000EDFC) // Debug Exception and Monitor Control
 #define ARM_DEMCR_TRCENA		(1 << 24)        // Enable debugging & monitoring blocks
@@ -130,8 +136,8 @@ int main(void) {
 					if( (ln_cnt >= MAX_IMAGE_HEIGHT/2 - n_lines/2) &&
 						(ln_cnt <  MAX_IMAGE_HEIGHT/2 + n_lines/2) )//&& send_picture_data && second_frame )
 					{	// send data out on every second frame (seems to improve noise)
-//						SendLine(0, ln_cnt, a, MAX_IMAGE_WIDTH);
-//						SendLine(1, ln_cnt, b, MAX_IMAGE_WIDTH);
+						SendLine(ln_cnt, a, b, MAX_IMAGE_WIDTH);
+//						CLK_CNTR_DELAY_US(10);
 					}
 
 				ln_cnt++;
@@ -139,12 +145,12 @@ int main(void) {
 			else
 				nv_cnt++;
         }
-
+/*
         char str[100];
         sprintf(str, "zr=%d  ln=%d  nv=%d\r\n", zr_cnt, ln_cnt, nv_cnt);
         USB_Send((uint8_t*)str, strlen(str));
-
-        CLK_CNTR_DELAY_US(100000);
+*/
+        CLK_CNTR_DELAY_US(100);
     }
 
     return 0 ;
@@ -214,44 +220,89 @@ static bool ReadCameraLine(uint16_t *a, uint16_t *b, uint16_t px)
 }
 
 
-/*
-void InitSysTick(void)
+static usb_status_t USB_SendRetry(uint8_t* buf, size_t len, int count)
 {
-	SysTick->LOAD = SysTick_LOAD_RELOAD_Msk;                                 // temporarily set maximum reload value
-	SysTick->VAL = SysTick_LOAD_RELOAD_Msk;                                // write to the current value to cause the counter value to be reset to 0 and the reload value be set
-    (void)SysTick->CTRL;                                                   // ensure that the SYSTICK_COUNTFLAG flag is cleared
-    SysTick->CTRL = (SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_ENABLE_Msk);                 // allow SYSTICK to run so that loop delays can already use it
-}
+	usb_status_t st;
 
-void __attribute__ ((noinline)) DelayLoop(unsigned long ulDelay_us)
-{
-	#define CORE_US (BOARD_BOOTCLOCKHSRUN_CORE_CLOCK/1000000)                                 // the number of core clocks in a us
-	register unsigned long ulPresentSystick;
-	register unsigned long ulMatch;
-	register unsigned long _ulDelay_us = ulDelay_us;                     // ensure that the compiler puts the variable in a register rather than work with it on the stack
-	if (_ulDelay_us == 0) {                                              // minimum delay is 1us
-		_ulDelay_us = 1;
+	// wait until not busy with small pauses in between:
+//	while (kStatus_USB_Success != (st=USB_CheckBusy()))
+//	{
+////		if (kStatus_USB_Busy != st)
+////			return st;
+//		CLK_CNTR_DELAY_US(1);
+//	}
+
+	// try sending 'count' times with small pauses in between:
+	while (kStatus_USB_Success != (st=USB_Send(buf, len)))
+	{
+		if (0 == count--)
+			break;
+		CLK_CNTR_DELAY_US(10);
 	}
-	(void)SysTick->CTRL;                                                 // clear the SysTick reload flag
-	ulMatch = (SysTick->VAL - CORE_US);	                                 // next 1us match value (SysTick counts down)
-	do {
-		while ((ulPresentSystick = SysTick->VAL) > ulMatch) {            // wait until a us period has expired
-			if (SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk) {            // if we missed a reload
-				(void)SysTick->CTRL;
-				break;                                                   // assume a us period expired
-			}
-		}
-		ulMatch = (ulPresentSystick - CORE_US);
-	} while (--_ulDelay_us);
 
-//	register unsigned long _ulDelay_us = ulDelay_us;                     // ensure that the compiler puts the variable in a register rather than work with it on the stack
-//    register unsigned long ul_us;
-//    while (_ulDelay_us--) {                                              // for each us required
-//        ul_us = (240000000/6000000);//(BOARD_BOOTCLOCKHSRUN_CORE_CLOCK/6000000);               // tuned but may be slightly compiler dependent - interrupt processing may increase delay
-//        while (ul_us--) {}                                               // simple loop tuned to perform us timing
-//    }
+	return st;
 }
-*/
+
+
+static void SendLine(uint16_t line, uint16_t *data1, uint16_t *data2, uint16_t dataSize)
+{
+	uint8_t packed[512];
+
+	packed[0] = (0x00) | (line >> 8);
+	packed[1] = line;
+	Pack8bits(packed+2, data1, 510);
+	USB_SendRetry(packed, 512, 0);
+	CLK_CNTR_DELAY_US(1);
+
+	packed[0] = (0x10) | (line >> 8);
+	packed[1] = line;
+	Pack8bits(packed+2, data1+510, dataSize-510);
+	USB_SendRetry(packed, 512, 0);
+	CLK_CNTR_DELAY_US(1);
+
+	packed[0] = (0x20) | (line >> 8);
+	packed[1] = line;
+	Pack8bits(packed+2, data2, 510);
+	USB_SendRetry(packed, 512, 0);
+	CLK_CNTR_DELAY_US(1);
+
+	packed[0] = (0x30) | (line >> 8);
+	packed[1] = line;
+	Pack8bits(packed+2, data2+510, dataSize-510);
+	USB_SendRetry(packed, 512, 0);
+	CLK_CNTR_DELAY_US(1);
+}
+
+
+//
+// dstLength = srcLength
+//
+static void Pack8bits(uint8_t *dstByte, uint16_t *srcWord, size_t srcLength)
+{
+	for (size_t i = 0; i < srcLength; i++)
+	{
+		dstByte[i] = srcWord[i] >> 2;
+	}
+}
+
+
+//
+// dstLength = srcLength / 4 * 5
+//
+static void Pack10bits(uint8_t *dstByte, uint16_t *srcWord, size_t srcLength)
+{
+	for (size_t i = 0; i < srcLength; i+=4)
+	{
+		dstByte[0] = srcWord[0];
+		dstByte[1] = ((srcWord[0] & 0x3FF) >> 8) | (srcWord[1] << 2);
+		dstByte[2] = ((srcWord[1] & 0x3FF) >> 6) | (srcWord[2] << 4);
+		dstByte[3] = ((srcWord[2] & 0x3FF) >> 4) | (srcWord[3] << 6);
+		dstByte[4] = ((srcWord[3] & 0x3FF) >> 2);
+		dstByte += 5;
+		srcWord += 4;
+	}
+}
+
 
 
 /***************************************************
