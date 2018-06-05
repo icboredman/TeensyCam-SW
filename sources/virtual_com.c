@@ -82,7 +82,7 @@ void BOARD_DbgConsole_Init(void);
 usb_status_t USB_DeviceCdcVcomCallback(class_handle_t handle, uint32_t event, void *param);
 usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event, void *param);
 
-usb_status_t USB_CheckBusy(void);
+static usb_status_t USB_CheckBusy(class_handle_t handle, uint8_t ep);
 
 /*******************************************************************************
 * Variables
@@ -679,37 +679,26 @@ void main(void)
 */
 
 
+//
+// make sure buf is declared using USB_DMA_NONINIT_DATA_ALIGN(USB_DATA_ALIGN_SIZE)
+//
 usb_status_t USB_Send(uint8_t* buf, size_t len)
 {
 	usb_status_t st;
-	size_t size;
 
-	while (len != 0)
+	// wait until not busy:
+	while (kStatus_USB_Success != (st=USB_CheckBusy(s_cdcVcom.cdcAcmHandle, USB_CDC_VCOM_BULK_IN_ENDPOINT)))
 	{
-		// wait until not busy:
-		while (kStatus_USB_Success != (st=USB_CheckBusy()))
-		{
-			if (kStatus_USB_Busy != st)
-				return st;
-		}
-		size = (len > DATA_BUFF_SIZE) ? DATA_BUFF_SIZE : len;
-		memcpy(s_currSendBuf, buf, size);
-		if (kStatus_USB_Success != (st=USB_DeviceCdcAcmSend(s_cdcVcom.cdcAcmHandle, USB_CDC_VCOM_BULK_IN_ENDPOINT, s_currSendBuf, size)))
-		{
+		if (kStatus_USB_Busy != st)
 			return st;
-		}
-		len -= size;
-		buf += size;
 	}
 
-	return st;
+	return USB_DeviceCdcAcmSend(s_cdcVcom.cdcAcmHandle, USB_CDC_VCOM_BULK_IN_ENDPOINT, buf, len);
 }
 
-usb_status_t USB_CheckBusy()
-{
-	class_handle_t handle = s_cdcVcom.cdcAcmHandle;
-	uint8_t ep = USB_CDC_VCOM_BULK_IN_ENDPOINT;
 
+static usb_status_t USB_CheckBusy(class_handle_t handle, uint8_t ep)
+{
     usb_device_cdc_acm_struct_t *cdcAcmHandle;
     usb_device_cdc_acm_pipe_t *cdcAcmPipe = NULL;
 

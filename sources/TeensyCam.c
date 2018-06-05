@@ -77,7 +77,7 @@ static void Pack10bits(uint8_t *dstByte, uint16_t *srcWord, size_t srcLength);
 static const uint8_t mt1addr = 0x90;
 static const uint8_t mt2addr = 0xB0;
 
-uint16_t exposure_us = 10000;	// up to 16383 us
+uint16_t exposure_us = 4000;	// up to 16383 us
 uint8_t analogGain = 16;		// 16 - 64
 uint8_t digitalGain = 4;		// 0 - 15
 uint16_t n_lines = MAX_IMAGE_HEIGHT;
@@ -112,6 +112,7 @@ int main(void) {
     sprintf(str, "init status=%d\r\n", st);
     USB_Send((uint8_t*)str, strlen(str));
 
+
     while(1)
     {
         uint16_t ln_cnt = 0;
@@ -121,7 +122,7 @@ int main(void) {
         uint16_t a[MAX_IMAGE_WIDTH], b[MAX_IMAGE_WIDTH];
 
         PulsePins(BOARD_INITPINS_EXPOSURE_PIN, 50);
-        CLK_CNTR_DELAY_US(exposure_us++);
+        CLK_CNTR_DELAY_US(exposure_us);
         PulsePins(BOARD_INITPINS_STFRM_OUT_PIN, 50);
 
         for (int ln=0; ln<530; ln++)   // min 525 lines, including blanking
@@ -145,12 +146,13 @@ int main(void) {
 			else
 				nv_cnt++;
         }
+
 /*
         char str[100];
         sprintf(str, "zr=%d  ln=%d  nv=%d\r\n", zr_cnt, ln_cnt, nv_cnt);
         USB_Send((uint8_t*)str, strlen(str));
 */
-        CLK_CNTR_DELAY_US(100);
+//        CLK_CNTR_DELAY_US(1000);
     }
 
     return 0 ;
@@ -166,6 +168,8 @@ int main(void) {
 
 static __attribute__ ((noinline)) void PulsePins(uint32_t pin, uint32_t cnt)
 {
+	__disable_irq();
+
 	GPIO_PinWrite(OUTPUTS_GPIO, pin, 1);
 
     while( cnt != 0 )
@@ -175,6 +179,8 @@ static __attribute__ ((noinline)) void PulsePins(uint32_t pin, uint32_t cnt)
     }
 
     GPIO_PinWrite(OUTPUTS_GPIO, pin, 0);
+
+    __enable_irq();
 }
 
 
@@ -224,14 +230,6 @@ static usb_status_t USB_SendRetry(uint8_t* buf, size_t len, int count)
 {
 	usb_status_t st;
 
-	// wait until not busy with small pauses in between:
-//	while (kStatus_USB_Success != (st=USB_CheckBusy()))
-//	{
-////		if (kStatus_USB_Busy != st)
-////			return st;
-//		CLK_CNTR_DELAY_US(1);
-//	}
-
 	// try sending 'count' times with small pauses in between:
 	while (kStatus_USB_Success != (st=USB_Send(buf, len)))
 	{
@@ -244,33 +242,17 @@ static usb_status_t USB_SendRetry(uint8_t* buf, size_t len, int count)
 }
 
 
+USB_DMA_NONINIT_DATA_ALIGN(USB_DATA_ALIGN_SIZE) uint8_t s_imgSendBuf[2048];
+
+
 static void SendLine(uint16_t line, uint16_t *data1, uint16_t *data2, uint16_t dataSize)
 {
-	uint8_t packed[512];
+	s_imgSendBuf[0] = (0x00) | (line >> 8);
+	s_imgSendBuf[1] = line;
+	Pack8bits(s_imgSendBuf+2, data1, dataSize);
+	Pack8bits(s_imgSendBuf+2+dataSize, data2, dataSize);
 
-	packed[0] = (0x00) | (line >> 8);
-	packed[1] = line;
-	Pack8bits(packed+2, data1, 510);
-	USB_SendRetry(packed, 512, 0);
-	CLK_CNTR_DELAY_US(1);
-
-	packed[0] = (0x10) | (line >> 8);
-	packed[1] = line;
-	Pack8bits(packed+2, data1+510, dataSize-510);
-	USB_SendRetry(packed, 512, 0);
-	CLK_CNTR_DELAY_US(1);
-
-	packed[0] = (0x20) | (line >> 8);
-	packed[1] = line;
-	Pack8bits(packed+2, data2, 510);
-	USB_SendRetry(packed, 512, 0);
-	CLK_CNTR_DELAY_US(1);
-
-	packed[0] = (0x30) | (line >> 8);
-	packed[1] = line;
-	Pack8bits(packed+2, data2+510, dataSize-510);
-	USB_SendRetry(packed, 512, 0);
-	CLK_CNTR_DELAY_US(1);
+	USB_SendRetry(s_imgSendBuf, dataSize*2+2, 10);
 }
 
 
