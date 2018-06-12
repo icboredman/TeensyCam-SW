@@ -14,7 +14,7 @@
       <validate_boot_init_only>true</validate_boot_init_only>
    </preferences>
    <tools>
-      <pins name="Pins" version="4.0" update_project_code="true">
+      <pins name="Pins" version="4.0" update_project_code="false">
          <pins_profile>
             <processor_version>3.0.1</processor_version>
             <pin_labels>
@@ -523,7 +523,7 @@
             </clock_configuration>
          </clock_configurations>
       </clocks>
-      <periphs name="Peripherals" version="1.0" update_project_code="false">
+      <periphs name="Peripherals" version="1.0" update_project_code="true">
          <dependencies>
             <dependency resourceType="SWComponent" resourceId="platform.drivers.i2c" description="I2C Driver not found in the toolchain/IDE project." problem_level="2" source="Peripherals">
                <feature name="enabled" evaluation="equal">
