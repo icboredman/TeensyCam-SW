@@ -34,11 +34,10 @@
 /* TEXT BELOW IS USED AS SETTING FOR TOOLS *************************************
 !!GlobalInfo
 product: Clocks v4.0
-processor: MK66FN2M0xxx18
-package_id: MK66FN2M0VMD18
+processor: MK66FX1M0xxx18
+package_id: MK66FX1M0VLQ18
 mcu_data: ksdk2_0
 processor_version: 3.0.1
-board: FRDM-K66F
  * BE CAREFUL MODIFYING THIS COMMENT - IT IS YAML SETTINGS FOR TOOLS **********/
 /* clang-format on */
 
@@ -157,10 +156,8 @@ const mcg_config_t mcgConfig_BOARD_BootClockHSRUN =
         .pll0Config =
             {
                 .enableMode = MCG_PLL_DISABLE,    /* MCGPLLCLK disabled */
-//                .prdiv = 0x1U,                    /* PLL Reference divider: divided by 2 */
-//                .vdiv = 0x1dU,                    /* VCO divider: multiplied by 45 */
-                .prdiv = 0x0U,                    /* 240 MHz: PLL Reference divider: divided by 1 */
-                .vdiv = 0xeU,                     /* 240 MHz: VCO divider: multiplied by 30 */
+                .prdiv = 0x1U,                    /* PLL Reference divider: divided by 2 */
+                .vdiv = 0x1dU,                    /* VCO divider: multiplied by 45 */
             },
         .pllcs = kMCG_PllClkSelPll0,              /* PLL0 output clock is selected */
     };

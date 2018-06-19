@@ -1205,7 +1205,7 @@
                         <struct name="ftm_config">
                            <setting name="clockSource" value="kFTM_SystemClock"/>
                            <setting name="prescale" value="kFTM_Prescale_Divide_1"/>
-                           <setting name="timerFrequency" value="13300000"/>
+                           <setting name="timerFrequency" value="10000000"/>
                            <setting name="bdmMode" value="kFTM_BdmMode_0"/>
                            <set name="pwmSyncMode">
                               <selected>

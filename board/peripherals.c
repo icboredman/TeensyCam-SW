@@ -585,7 +585,7 @@ instance:
     - ftm_config:
       - clockSource: 'kFTM_SystemClock'
       - prescale: 'kFTM_Prescale_Divide_1'
-      - timerFrequency: '13300000'
+      - timerFrequency: '10000000'
       - bdmMode: 'kFTM_BdmMode_0'
       - pwmSyncMode: 'kFTM_SoftwareTrigger'
       - reloadPoints: ''
@@ -640,7 +640,7 @@ const ftm_chnl_pwm_signal_param_t SYSCLK_pwmSignalParams[] = {
 
 void SYSCLK_init(void) {
   FTM_Init(SYSCLK_PERIPHERAL, &SYSCLK_config);
-  FTM_SetupPwm(SYSCLK_PERIPHERAL, SYSCLK_pwmSignalParams, sizeof(SYSCLK_pwmSignalParams) / sizeof(ftm_chnl_pwm_signal_param_t), kFTM_EdgeAlignedPwm, 13300000U, SYSCLK_CLOCK_SOURCE);
+  FTM_SetupPwm(SYSCLK_PERIPHERAL, SYSCLK_pwmSignalParams, sizeof(SYSCLK_pwmSignalParams) / sizeof(ftm_chnl_pwm_signal_param_t), kFTM_EdgeAlignedPwm, 10000000U, SYSCLK_CLOCK_SOURCE);
   FTM_StartTimer(SYSCLK_PERIPHERAL, kFTM_SystemClock);
 }
 

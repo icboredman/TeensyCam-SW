@@ -52,6 +52,7 @@ extern usb_status_t USB_Send(uint8_t* buf, size_t len);
 extern usb_status_t USB_CheckBusy(void);
 extern size_t USB_Recv(uint8_t** buf);
 
+void __attribute__ ((noinline)) TakeSnapshot(void);
 static void PulsePins(uint32_t pin, uint32_t cnt);
 static bool ReadCameraLine(uint16_t *a, uint16_t *b, uint16_t px);
 
@@ -76,9 +77,9 @@ bool take_snapshot = false;
 							  	  ARM_DWT_CTRL |= ARM_DWT_CTRL_CYCCNTENA; \
 							  	  ARM_DWT_CYCCNT = 0; }
 #define CLK_CNTR_VALUE		  	ARM_DWT_CYCCNT
-//#define CLK_CNTR_DELAY_US(us)	{ CLK_CNTR_RESET();		\
-//								  while(CLK_CNTR_VALUE < us*(BOARD_BOOTCLOCKHSRUN_CORE_CLOCK/1000000)){} }
-#define CLK_CNTR_DELAY_US  DelayLoop
+#define CLK_CNTR_DELAY_US(us)	{ CLK_CNTR_RESET();		\
+								  while(CLK_CNTR_VALUE < us*(BOARD_BOOTCLOCKHSRUN_CORE_CLOCK/1000000)){} }
+//#define CLK_CNTR_DELAY_US  DelayLoop
 
 #define PORT_CAM1	(GPIOC->PDIR)
 #define PORT_CAM2	(GPIOD->PDIR)
@@ -93,7 +94,7 @@ uint16_t n_lines = MAX_IMAGE_HEIGHT;
 bool send_picture_data = true;
 
 #define LIGHT_FREQ	50U			// indoor lighting flicker rate in Hz
-#define FPS	(LIGHT_FREQ / 5U)	// 10 Hz
+#define FPS			25U			// in Hz (must be even divisor of LIGHT_FREQ)
 
 /*
  * @brief   Application entry point.
@@ -118,9 +119,9 @@ int main(void) {
 
 	APPInit();
 
-	InitSysTick();
-	DelayLoop(1000000);
-	//CLK_CNTR_DELAY_US(1000000);
+//	InitSysTick();
+//	DelayLoop(1000000);
+	CLK_CNTR_DELAY_US(1000000);
 
     // configure camera slave mode
     status_t st = MT9Initialize(mt1addr);
@@ -141,6 +142,8 @@ int main(void) {
     {
     	if (take_snapshot)
     	{
+    		TakeSnapshot();
+/*
 			uint16_t ln_cnt = 0;
 			uint16_t nv_cnt = 0;
 			uint16_t zr_cnt = 0;
@@ -164,7 +167,7 @@ int main(void) {
 							(ln_cnt <  MAX_IMAGE_HEIGHT/2 + n_lines/2) && send_picture_data )
 						{
 							SendLine(ln_cnt, a, b, MAX_IMAGE_WIDTH);
-	//						CLK_CNTR_DELAY_US(10);
+//							CLK_CNTR_DELAY_US(10);
 						}
 
 					ln_cnt++;
@@ -172,7 +175,7 @@ int main(void) {
 				else
 					nv_cnt++;
 			}
-
+*/
 			take_snapshot = false;
     	}
 
@@ -185,7 +188,7 @@ int main(void) {
         		case 'E' :	exposure_us = rcv_dta[1] << 8;
         					exposure_us |= rcv_dta[2];
         					break;
-/*        		case 'A' :	analogGain = rcv_dta[2];
+        		case 'A' :	analogGain = rcv_dta[2];
         					Mt9SetAnalogGain(mt1addr,analogGain);
         					Mt9SetAnalogGain(mt2addr,analogGain);
         					break;
@@ -198,7 +201,7 @@ int main(void) {
         					break;
         		case 'P' :	send_picture_data = rcv_dta[2] & 0x01;
         					break;
-*/        		default  :	break;
+        		default  :	break;
         		}
         	}
         }
@@ -213,6 +216,42 @@ int main(void) {
 }
 
 
+void __attribute__ ((noinline)) TakeSnapshot()
+{
+	uint16_t ln_cnt = 0;
+	uint16_t nv_cnt = 0;
+	uint16_t zr_cnt = 0;
+
+	uint16_t a[MAX_IMAGE_WIDTH], b[MAX_IMAGE_WIDTH];
+
+	PulsePins(BOARD_INITPINS_EXPOSURE_PIN, 50);
+	CLK_CNTR_DELAY_US(exposure_us);
+	PulsePins(BOARD_INITPINS_STFRM_OUT_PIN, 50);
+
+	for (int ln=0; ln<530; ln++)   // min 525 lines, including blanking
+	{
+		PulsePins(BOARD_INITPINS_STLN_OUT1_PIN, 50);
+
+		if( ReadCameraLine(a, b, MAX_IMAGE_WIDTH) )
+		{	// make sure last data point contains valid line and frame markers
+			if( (a[0]>>10) != 0x3 || (b[0]>>10) != 0xC )
+				zr_cnt++;
+//			else
+				if( (ln_cnt >= MAX_IMAGE_HEIGHT/2 - n_lines/2) &&
+					(ln_cnt <  MAX_IMAGE_HEIGHT/2 + n_lines/2) && send_picture_data )
+				{
+					SendLine(ln_cnt, a, b, MAX_IMAGE_WIDTH);
+//							CLK_CNTR_DELAY_US(10);
+				}
+
+			ln_cnt++;
+		}
+		else
+			nv_cnt++;
+	}
+
+}
+
 
 void FPS_TICK_HANDLER(void)
 {
@@ -220,7 +259,7 @@ void FPS_TICK_HANDLER(void)
 
     PIT_ClearStatusFlags(PIT, kPIT_Chnl_0, kPIT_TimerFlag);
 
-	if (FPS == counter++)
+	if ((LIGHT_FREQ/FPS) == counter++)
 	{
 		counter = 0;
 		take_snapshot = true;
@@ -273,6 +312,8 @@ static bool ReadCameraLine(uint16_t *a, uint16_t *b, uint16_t px)
 		}
 	}
 
+//	__ASM volatile ("mov r0, r0");
+
 	// capture one line of data
     while (1)
     {	// sample data on low level of PIXCLK (first pixel may be lost)
@@ -318,8 +359,8 @@ static void SendLine(uint16_t line, uint16_t *data1, uint16_t *data2, uint16_t d
 	Pack8bits(s_imgSendBuf+2, data1, dataSize);
 	Pack8bits(s_imgSendBuf+2+dataSize, data2, dataSize);
 
-	USB_SendRetry(s_imgSendBuf, dataSize*2+2, 10);
-	USB_Send(NULL,0);
+	USB_Send(s_imgSendBuf, dataSize*2+2);
+//	USB_Send(NULL,0);
 }
 
 
