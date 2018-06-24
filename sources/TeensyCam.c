@@ -51,6 +51,7 @@ extern void APPTask(void);
 extern usb_status_t USB_Send(uint8_t* buf, size_t len);
 extern usb_status_t USB_CheckBusy(void);
 extern size_t USB_Recv(uint8_t** buf);
+extern usb_status_t USB_RecvReady(void);
 
 void __attribute__ ((noinline)) TakeSnapshot(void);
 static void PulsePins(uint32_t pin, uint32_t cnt);
@@ -90,11 +91,11 @@ static const uint8_t mt2addr = 0xB0;
 uint16_t exposure_us = 4000;	// up to 16383 us
 uint8_t analogGain = 16;		// 16 - 64
 uint8_t digitalGain = 4;		// 0 - 15
-uint16_t n_lines = MAX_IMAGE_HEIGHT;
-bool send_picture_data = true;
-
+uint16_t n_lines = 100;			// MAX_IMAGE_HEIGHT;
+//bool send_picture_data = false;
 #define LIGHT_FREQ	50U			// indoor lighting flicker rate in Hz
-#define FPS			25U			// in Hz (must be even divisor of LIGHT_FREQ)
+uint8_t _fps = 25;				// 2 Hz
+
 
 /*
  * @brief   Application entry point.
@@ -142,46 +143,13 @@ int main(void) {
     {
     	if (take_snapshot)
     	{
-    		TakeSnapshot();
-/*
-			uint16_t ln_cnt = 0;
-			uint16_t nv_cnt = 0;
-			uint16_t zr_cnt = 0;
-
-			uint16_t a[MAX_IMAGE_WIDTH], b[MAX_IMAGE_WIDTH];
-
-			PulsePins(BOARD_INITPINS_EXPOSURE_PIN, 50);
-			CLK_CNTR_DELAY_US(exposure_us);
-			PulsePins(BOARD_INITPINS_STFRM_OUT_PIN, 50);
-
-			for (int ln=0; ln<530; ln++)   // min 525 lines, including blanking
-			{
-				PulsePins(BOARD_INITPINS_STLN_OUT1_PIN, 50);
-
-				if( ReadCameraLine(a, b, MAX_IMAGE_WIDTH) )
-				{	// make sure last data point contains valid line and frame markers
-					if( (a[0]>>10) != 0x3 || (b[0]>>10) != 0xC )
-						zr_cnt++;
-					else
-						if( (ln_cnt >= MAX_IMAGE_HEIGHT/2 - n_lines/2) &&
-							(ln_cnt <  MAX_IMAGE_HEIGHT/2 + n_lines/2) && send_picture_data )
-						{
-							SendLine(ln_cnt, a, b, MAX_IMAGE_WIDTH);
-//							CLK_CNTR_DELAY_US(10);
-						}
-
-					ln_cnt++;
-				}
-				else
-					nv_cnt++;
-			}
-*/
 			take_snapshot = false;
+    		TakeSnapshot();
     	}
 
         while (0 != (rcv_sz=USB_Recv(&rcv_dta)))
         {
-        	if (3 == rcv_sz)
+        	while (3 <= rcv_sz)
         	{
         		switch (rcv_dta[0])
         		{
@@ -199,11 +167,22 @@ int main(void) {
         		case 'N' :	n_lines = rcv_dta[1] << 8;
         					n_lines |= rcv_dta[2];
         					break;
-        		case 'P' :	send_picture_data = rcv_dta[2] & 0x01;
+//        		case 'P' :	send_picture_data = rcv_dta[2] & 0x01;
+//        					break;
+        		case 'F' :	_fps = rcv_dta[2];
+        					if (_fps > 50)
+        						_fps = 50;
+//        					if (_fps < 2)
+//        						_fps = 2;
         					break;
         		default  :	break;
         		}
+
+        		rcv_sz -= 3;
+        		rcv_dta += 3;
         	}
+
+        	USB_RecvReady();
         }
 
 
@@ -236,9 +215,9 @@ void __attribute__ ((noinline)) TakeSnapshot()
 		{	// make sure last data point contains valid line and frame markers
 			if( (a[0]>>10) != 0x3 || (b[0]>>10) != 0xC )
 				zr_cnt++;
-//			else
+			else
 				if( (ln_cnt >= MAX_IMAGE_HEIGHT/2 - n_lines/2) &&
-					(ln_cnt <  MAX_IMAGE_HEIGHT/2 + n_lines/2) && send_picture_data )
+					(ln_cnt <  MAX_IMAGE_HEIGHT/2 + n_lines/2) )
 				{
 					SendLine(ln_cnt, a, b, MAX_IMAGE_WIDTH);
 //							CLK_CNTR_DELAY_US(10);
@@ -259,7 +238,8 @@ void FPS_TICK_HANDLER(void)
 
     PIT_ClearStatusFlags(PIT, kPIT_Chnl_0, kPIT_TimerFlag);
 
-	if ((LIGHT_FREQ/FPS) == counter++)
+//	if ((LIGHT_FREQ/FPS) == counter++)
+	if (++counter >= _fps)
 	{
 		counter = 0;
 		take_snapshot = true;
@@ -354,13 +334,15 @@ USB_DMA_NONINIT_DATA_ALIGN(USB_DATA_ALIGN_SIZE) uint8_t s_imgSendBuf[2048];
 
 static void SendLine(uint16_t line, uint16_t *data1, uint16_t *data2, uint16_t dataSize)
 {
+//	if (false == send_picture_data)
+//		return;
+
 	s_imgSendBuf[0] = (0x00) | (line >> 8);
 	s_imgSendBuf[1] = line;
 	Pack8bits(s_imgSendBuf+2, data1, dataSize);
 	Pack8bits(s_imgSendBuf+2+dataSize, data2, dataSize);
 
 	USB_Send(s_imgSendBuf, dataSize*2+2);
-//	USB_Send(NULL,0);
 }
 
 

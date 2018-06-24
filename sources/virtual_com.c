@@ -758,3 +758,12 @@ size_t USB_Recv(uint8_t **pBuf)
 
     return status;
 }
+
+
+//
+// Schedule buffer for next receive event
+//
+usb_status_t USB_RecvReady(void)
+{
+	return USB_DeviceCdcAcmRecv(s_cdcVcom.cdcAcmHandle, USB_CDC_VCOM_BULK_OUT_ENDPOINT, s_currRecvBuf, DATA_BUFF_SIZE);
+}
