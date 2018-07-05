@@ -740,30 +740,41 @@ static usb_status_t USB_CheckBusy(class_handle_t handle, uint8_t ep)
 
 
 //
-//
-//
-size_t USB_Recv(uint8_t **pBuf)
-{
-	size_t status = 0;
-
-    if ((1 == s_cdcVcom.attach) && (1 == s_cdcVcom.startTransactions))
-    {
-        if ((0 != s_recvSize) && (0xFFFFFFFFU != s_recvSize))
-        {
-        	*pBuf = &s_currRecvBuf[0];
-        	status = s_recvSize;
-            s_recvSize = 0;
-        }
-    }
-
-    return status;
-}
-
-
-//
 // Schedule buffer for next receive event
 //
 usb_status_t USB_RecvReady(void)
 {
 	return USB_DeviceCdcAcmRecv(s_cdcVcom.cdcAcmHandle, USB_CDC_VCOM_BULK_OUT_ENDPOINT, s_currRecvBuf, DATA_BUFF_SIZE);
 }
+
+
+//
+//
+bool USB_Recv(uint8_t *buf, uint32_t len)
+{
+	static uint8_t *p_currRecvBuf = s_currRecvBuf;
+
+	if ((1 == s_cdcVcom.attach) && (1 == s_cdcVcom.startTransactions))
+	{
+		if (len <= s_recvSize)
+		{
+			memcpy(buf,p_currRecvBuf,len);
+			p_currRecvBuf += len;
+			s_recvSize -= len;
+			if (s_recvSize == 0)
+			{
+				USB_RecvReady();
+				p_currRecvBuf = s_currRecvBuf;
+			}
+			return true;
+		}
+		else
+		{
+			USB_RecvReady();
+			p_currRecvBuf = s_currRecvBuf;
+			return false;
+		}
+	}
+	return false;
+}
+

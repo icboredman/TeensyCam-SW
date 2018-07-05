@@ -50,19 +50,15 @@ extern void APPInit(void);
 extern void APPTask(void);
 extern usb_status_t USB_Send(uint8_t* buf, size_t len);
 extern usb_status_t USB_CheckBusy(void);
-extern size_t USB_Recv(uint8_t** buf);
-extern usb_status_t USB_RecvReady(void);
+extern bool USB_Recv(uint8_t *buf, uint32_t len);
 
 void __attribute__ ((noinline)) TakeSnapshot(void);
 static void PulsePins(uint32_t pin, uint32_t cnt);
-static bool ReadCameraLine(uint16_t *a, uint16_t *b, uint16_t px);
+static __attribute__ ((noinline)) bool ReadCameraLine(uint16_t *a, uint16_t *b, uint16_t px);
 
 static void SendLine(uint16_t line, uint16_t *data1, uint16_t *data2, uint16_t dataSize);
 static void Pack8bits(uint8_t *dstByte, uint16_t *srcWord, size_t srcLength);
 static void Pack10bits(uint8_t *dstByte, uint16_t *srcWord, size_t srcLength);
-
-void InitSysTick(void);
-void __attribute__ ((noinline)) DelayLoop(unsigned long ulDelay_us);
 
 #define FPS_TICK_HANDLER PIT0_IRQHandler
 #define PIT_IRQ_ID PIT0_IRQn
@@ -80,7 +76,6 @@ bool take_snapshot = false;
 #define CLK_CNTR_VALUE		  	ARM_DWT_CYCCNT
 #define CLK_CNTR_DELAY_US(us)	{ CLK_CNTR_RESET();		\
 								  while(CLK_CNTR_VALUE < us*(BOARD_BOOTCLOCKHSRUN_CORE_CLOCK/1000000)){} }
-//#define CLK_CNTR_DELAY_US  DelayLoop
 
 #define PORT_CAM1	(GPIOC->PDIR)
 #define PORT_CAM2	(GPIOD->PDIR)
@@ -88,14 +83,24 @@ bool take_snapshot = false;
 static const uint8_t mt1addr = 0x90;
 static const uint8_t mt2addr = 0xB0;
 
-uint16_t exposure_us = 4000;	// up to 16383 us
-uint8_t analogGain = 16;		// 16 - 64
-uint8_t digitalGain = 4;		// 0 - 15
-uint16_t n_lines = 100;			// MAX_IMAGE_HEIGHT;
-//bool send_picture_data = false;
 #define LIGHT_FREQ	50U			// indoor lighting flicker rate in Hz
-uint8_t _fps = 25;				// 2 Hz
 
+// 4-byte alignment
+typedef struct {
+	uint32_t exposure_us;
+	uint32_t analogGain;
+	uint32_t digitalGain;
+	uint32_t n_lines;
+	uint32_t cpf;
+	uint32_t aec_enable;
+	uint32_t agc_enable;
+	uint32_t cmp_enable;
+} cam_config_t;
+
+cam_config_t camconfig;
+
+bool adjust_exposure = false;
+uint16_t camRegs[6];
 
 /*
  * @brief   Application entry point.
@@ -120,24 +125,24 @@ int main(void) {
 
 	APPInit();
 
-//	InitSysTick();
-//	DelayLoop(1000000);
 	CLK_CNTR_DELAY_US(1000000);
 
+    camconfig.exposure_us = 4000;	// up to 16383 us
+    camconfig.analogGain = 16;		// 16 - 64
+    camconfig.digitalGain = 4;		// 0 - 15
+    camconfig.n_lines = 100;		// MAX_IMAGE_HEIGHT;
+    camconfig.cpf = 25;				// 2 Hz
+    camconfig.aec_enable = true;
+    camconfig.agc_enable = false;
+    camconfig.cmp_enable = true;
+
     // configure camera slave mode
-    status_t st = MT9Initialize(mt1addr);
-    st += MT9Initialize(mt2addr);
-    st += MT9SetAGC(mt1addr, false);
-    st += MT9SetAGC(mt2addr, false);
-    st += MT9SetCompanding(mt1addr, true);
-    st += MT9SetCompanding(mt2addr, true);
-
-    char str[100];
-    sprintf(str, "init status=%d\r\n", st);
-    USB_Send((uint8_t*)str, strlen(str));
-
-    size_t rcv_sz;
-    uint8_t *rcv_dta;
+    MT9Initialize(mt1addr);
+    MT9Initialize(mt2addr);
+    MT9SetAGC_AEC(mt1addr, camconfig.agc_enable, false);
+    MT9SetAGC_AEC(mt2addr, camconfig.agc_enable, false);
+    MT9SetCompanding(mt1addr, camconfig.cmp_enable);
+    MT9SetCompanding(mt2addr, camconfig.cmp_enable);
 
     while(1)
     {
@@ -147,48 +152,46 @@ int main(void) {
     		TakeSnapshot();
     	}
 
-        while (0 != (rcv_sz=USB_Recv(&rcv_dta)))
+        if (USB_Recv((uint8_t*)&camconfig, sizeof(camconfig)))
         {
-        	while (3 <= rcv_sz)
-        	{
-        		switch (rcv_dta[0])
-        		{
-        		case 'E' :	exposure_us = rcv_dta[1] << 8;
-        					exposure_us |= rcv_dta[2];
-        					break;
-        		case 'A' :	analogGain = rcv_dta[2];
-        					Mt9SetAnalogGain(mt1addr,analogGain);
-        					Mt9SetAnalogGain(mt2addr,analogGain);
-        					break;
-        		case 'D' :	digitalGain = rcv_dta[2];
-        					MT9SetDigitalGain(mt1addr,digitalGain);
-        					MT9SetDigitalGain(mt2addr,digitalGain);
-        					break;
-        		case 'N' :	n_lines = rcv_dta[1] << 8;
-        					n_lines |= rcv_dta[2];
-        					break;
-//        		case 'P' :	send_picture_data = rcv_dta[2] & 0x01;
-//        					break;
-        		case 'F' :	_fps = rcv_dta[2];
-        					if (_fps > 50)
-        						_fps = 50;
-//        					if (_fps < 2)
-//        						_fps = 2;
-        					break;
-        		default  :	break;
-        		}
-
-        		rcv_sz -= 3;
-        		rcv_dta += 3;
-        	}
-
-        	USB_RecvReady();
+            MT9SetAGC_AEC(mt1addr, camconfig.agc_enable, false);
+            MT9SetAGC_AEC(mt2addr, camconfig.agc_enable, false);
+            MT9SetCompanding(mt1addr, camconfig.cmp_enable);
+            MT9SetCompanding(mt2addr, camconfig.cmp_enable);
+			Mt9SetAnalogGain(mt1addr, camconfig.analogGain);
+			Mt9SetAnalogGain(mt2addr, camconfig.analogGain);
+			MT9SetDigitalGain(mt1addr, camconfig.digitalGain);
+			MT9SetDigitalGain(mt2addr, camconfig.digitalGain);
         }
 
+        if (adjust_exposure)
+        {
+        	adjust_exposure = false;
 
-//		CLK_CNTR_DELAY_US(1000);
-//        DelayLoop(50000);
-//        APPTask();
+        	I2C_Read16(mt1addr, MTV_AGC_AEC_CURRENT_BIN_REG, &camRegs[0]);
+        	I2C_Read16(mt2addr, MTV_AGC_AEC_CURRENT_BIN_REG, &camRegs[1]);
+
+        	// proportional control:
+        	if (camconfig.aec_enable)
+        	{
+				int diff = (int)camRegs[0] - 0x002C;
+				int amount;
+				if (diff > 5)
+					amount = -1000;
+				else if (diff < -5)
+					amount = 1000;
+				else
+					amount = diff * (-50);
+
+				camconfig.exposure_us += amount;
+
+				if (camconfig.exposure_us > 16383)
+					camconfig.exposure_us = 16383;
+        	}
+        	camRegs[2] = camconfig.exposure_us;
+        }
+
+        //CLK_CNTR_DELAY_US(1000);
     }
 
     return 0 ;
@@ -204,23 +207,23 @@ void __attribute__ ((noinline)) TakeSnapshot()
 	uint16_t a[MAX_IMAGE_WIDTH], b[MAX_IMAGE_WIDTH];
 
 	PulsePins(BOARD_INITPINS_EXPOSURE_PIN, 50);
-	CLK_CNTR_DELAY_US(exposure_us);
+	CLK_CNTR_DELAY_US(camconfig.exposure_us);
 	PulsePins(BOARD_INITPINS_STFRM_OUT_PIN, 50);
 
 	for (int ln=0; ln<530; ln++)   // min 525 lines, including blanking
 	{
-		PulsePins(BOARD_INITPINS_STLN_OUT1_PIN, 50);
+		//PulsePins(BOARD_INITPINS_STLN_OUT1_PIN, 40);
 
 		if( ReadCameraLine(a, b, MAX_IMAGE_WIDTH) )
 		{	// make sure last data point contains valid line and frame markers
 			if( (a[0]>>10) != 0x3 || (b[0]>>10) != 0xC )
 				zr_cnt++;
 			else
-				if( (ln_cnt >= MAX_IMAGE_HEIGHT/2 - n_lines/2) &&
-					(ln_cnt <  MAX_IMAGE_HEIGHT/2 + n_lines/2) )
+				if( (ln_cnt >= MAX_IMAGE_HEIGHT/2 - camconfig.n_lines/2) &&
+					(ln_cnt <  MAX_IMAGE_HEIGHT/2 + camconfig.n_lines/2) )
 				{
 					SendLine(ln_cnt, a, b, MAX_IMAGE_WIDTH);
-//							CLK_CNTR_DELAY_US(10);
+					//CLK_CNTR_DELAY_US(10);
 				}
 
 			ln_cnt++;
@@ -229,20 +232,29 @@ void __attribute__ ((noinline)) TakeSnapshot()
 			nv_cnt++;
 	}
 
+	camRegs[3] = ln_cnt;
+	camRegs[4] = nv_cnt;
+	camRegs[5] = zr_cnt;
 }
 
 
 void FPS_TICK_HANDLER(void)
 {
-	static int counter = 0;
+	static unsigned frmCounter = 0;
+	static unsigned aecCounter = 0;
 
     PIT_ClearStatusFlags(PIT, kPIT_Chnl_0, kPIT_TimerFlag);
 
-//	if ((LIGHT_FREQ/FPS) == counter++)
-	if (++counter >= _fps)
+	if (++frmCounter >= camconfig.cpf)
 	{
-		counter = 0;
+		frmCounter = 0;
 		take_snapshot = true;
+	}
+
+	if (++aecCounter >= LIGHT_FREQ)		// 1 sec
+	{
+		aecCounter = 0;
+		adjust_exposure = true;
 	}
 }
 
@@ -251,9 +263,9 @@ void FPS_TICK_HANDLER(void)
  * Utility Functions
  ***************************************************/
 
-static __attribute__ ((noinline)) void PulsePins(uint32_t pin, uint32_t cnt)
+static void PulsePins(uint32_t pin, uint32_t cnt)
 {
-	__disable_irq();
+	//__disable_irq();
 
 	GPIO_PinWrite(OUTPUTS_GPIO, pin, 1);
 
@@ -265,16 +277,18 @@ static __attribute__ ((noinline)) void PulsePins(uint32_t pin, uint32_t cnt)
 
     GPIO_PinWrite(OUTPUTS_GPIO, pin, 0);
 
-    __enable_irq();
+    //__enable_irq();
 }
 
 
-static bool ReadCameraLine(uint16_t *a, uint16_t *b, uint16_t px)
+static __attribute__ ((noinline)) bool ReadCameraLine(uint16_t *a, uint16_t *b, uint16_t px)
 {
 	//  int px = 750;  // max (752-1)
-	px -= 2;
+	px -= 3;
 
 	__disable_irq();
+
+	PulsePins(BOARD_INITPINS_STLN_OUT1_PIN, 50);
 
 	// PIXCLKs between STLN_OUT1 pulses
 	// need about 60 extra pulses before LINE_VALID, so min is 752 + 60 = 812
@@ -291,8 +305,6 @@ static bool ReadCameraLine(uint16_t *a, uint16_t *b, uint16_t px)
 			}
 		}
 	}
-
-//	__ASM volatile ("mov r0, r0");
 
 	// capture one line of data
     while (1)
@@ -339,10 +351,14 @@ static void SendLine(uint16_t line, uint16_t *data1, uint16_t *data2, uint16_t d
 
 	s_imgSendBuf[0] = (0x00) | (line >> 8);
 	s_imgSendBuf[1] = line;
-	Pack8bits(s_imgSendBuf+2, data1, dataSize);
-	Pack8bits(s_imgSendBuf+2+dataSize, data2, dataSize);
 
-	USB_Send(s_imgSendBuf, dataSize*2+2);
+	for(int i=0; i<12; i++)
+		s_imgSendBuf[2+i] = ((uint8_t*)camRegs)[i];
+
+	Pack8bits(s_imgSendBuf+2+12, data1, dataSize);
+	Pack8bits(s_imgSendBuf+2+12+dataSize, data2, dataSize);
+
+	USB_Send(s_imgSendBuf, dataSize*2+2+12);
 }
 
 
@@ -423,43 +439,4 @@ status_t I2C_Read16(uint8_t dev, uint8_t reg, uint16_t* val)
     	*val = (g_master_rxBuff[0] << 8) | g_master_rxBuff[1];
 
     return st;
-}
-
-
-
-void InitSysTick(void)
-{
-	SysTick->LOAD = SysTick_LOAD_RELOAD_Msk;                                 // temporarily set maximum reload value
-	SysTick->VAL = SysTick_LOAD_RELOAD_Msk;                                // write to the current value to cause the counter value to be reset to 0 and the reload value be set
-    (void)SysTick->CTRL;                                                   // ensure that the SYSTICK_COUNTFLAG flag is cleared
-    SysTick->CTRL = (SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_ENABLE_Msk);                 // allow SYSTICK to run so that loop delays can already use it
-}
-
-void __attribute__ ((noinline)) DelayLoop(unsigned long ulDelay_us)
-{
-	#define CORE_US (BOARD_BOOTCLOCKHSRUN_CORE_CLOCK/1000000)                                 // the number of core clocks in a us
-	register unsigned long ulPresentSystick;
-	register unsigned long ulMatch;
-	register unsigned long _ulDelay_us = ulDelay_us;                     // ensure that the compiler puts the variable in a register rather than work with it on the stack
-	if (_ulDelay_us == 0) {                                              // minimum delay is 1us
-		_ulDelay_us = 1;
-	}
-	(void)SysTick->CTRL;                                                 // clear the SysTick reload flag
-	ulMatch = (SysTick->VAL - CORE_US);	                                 // next 1us match value (SysTick counts down)
-	do {
-		while ((ulPresentSystick = SysTick->VAL) > ulMatch) {            // wait until a us period has expired
-			if (SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk) {            // if we missed a reload
-				(void)SysTick->CTRL;
-				break;                                                   // assume a us period expired
-			}
-		}
-		ulMatch = (ulPresentSystick - CORE_US);
-	} while (--_ulDelay_us);
-
-//	register unsigned long _ulDelay_us = ulDelay_us;                     // ensure that the compiler puts the variable in a register rather than work with it on the stack
-//    register unsigned long ul_us;
-//    while (_ulDelay_us--) {                                              // for each us required
-//        ul_us = (240000000/6000000);//(BOARD_BOOTCLOCKHSRUN_CORE_CLOCK/6000000);               // tuned but may be slightly compiler dependent - interrupt processing may increase delay
-//        while (ul_us--) {}                                               // simple loop tuned to perform us timing
-//    }
 }
