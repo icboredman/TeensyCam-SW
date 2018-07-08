@@ -39,6 +39,7 @@
 #define MTV_FINE_SW_2_REG_A             0xD4
 #define MTV_FINE_SW_TOTAL_REG_A         0xD5
 #define MTV_READ_MODE_REG_A             0x0D
+#define MTV_READ_MODE_COL_FLIP			(1 << 5)
 #define MTV_V1_CTRL_REG_A               0x31
 #define MTV_V2_CTRL_REG_A               0x32
 #define MTV_V3_CTRL_REG_A               0x33
@@ -121,6 +122,8 @@ static status_t MT9Initialize(uint8_t dev)
 	status_t st = I2C_Write16(dev, MTV_CHIP_CONTROL_REG,  MTV_CHIP_CONTROL_SLAVE_MODE
                                           | MTV_CHIP_CONTROL_DOUT_ENABLE
                                           | MTV_CHIP_CONTROL_SEQUENTIAL );
+	// column flip
+	I2C_Write16(dev, MTV_READ_MODE_REG_A, MTV_READ_MODE_COL_FLIP);
 	// recommended reserved register settings
 	I2C_Write16(dev, 0x20, 0x03C7);
 	I2C_Write16(dev, 0x24, 0x001B);
