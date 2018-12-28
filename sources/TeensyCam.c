@@ -177,11 +177,11 @@ int main(void) {
 				int diff = (int)camRegs[0] - 0x002C;
 				int amount;
 				if (diff > 5)
-					amount = -1000;
+					amount = -200;
 				else if (diff < -5)
-					amount = 1000;
+					amount = 200;
 				else
-					amount = diff * (-50);
+					amount = diff * (-2);
 
 				camconfig.exposure_us += amount;
 
@@ -251,7 +251,7 @@ void FPS_TICK_HANDLER(void)
 		take_snapshot = true;
 	}
 
-	if (++aecCounter >= LIGHT_FREQ)		// 1 sec
+	if (++aecCounter >= (LIGHT_FREQ/2))		// 0.5 sec
 	{
 		aecCounter = 0;
 		adjust_exposure = true;
@@ -269,7 +269,7 @@ static void PulsePins(uint32_t pin, uint32_t cnt)
 
 	GPIO_PinWrite(OUTPUTS_GPIO, pin, 1);
 
-    while( cnt != 0 )
+    while (cnt != 0)
     {
         if (GPIO_PinRead(INPUTS_GPIO, BOARD_INITPINS_PIXCLK1_PIN))
             cnt--;
