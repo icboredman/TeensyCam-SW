@@ -1,7 +1,21 @@
 # TeensyCam-SW
-Arduino (teensyduino) project to create firmware for TeensyCam - stereo camera module
+**Arduino ([teensyduino](https://www.pjrc.com/teensy/teensyduino.html))** project to create firmware for [**TeensyCam**](https://github.com/icboredman/TeensyCam-HW) - stereo camera module
 
-* Only able to utilize full-speed USB port of Teensy 3.6, as the high-speed USB device mode driver was not available (as of end 2018, => https://forum.pjrc.com/threads/46466-Teensy-3-6-USB-High-Speed-status?#post187104).
-* Otherwise, camera works well.
+#### _Status:_
+* full speed USB mode only (12 Mbps) resulting in max 1 - 2 FPS :cry:
+* abandoned in favor of **MCUXpresso**-based version (see branch [master](https://github.com/icboredman/TeensyCam-SW))
 
-More info in my blog page: https://BoredomProjects.net/ (under construction...)
+## Features:
+* Runs on [Teensy 3.6](https://www.pjrc.com/store/teensy36.html) microcontroller board attached to TeensyCam module
+* Configures two connected MT9V034 imaging sensors via I2C interface
+* Triggers simultaneous image capture using pre-set exposure duration
+* Sends image sensor frames to host processor via USB CDC connection
+* Allows host-configurable parameters:
+  * exposure
+  * analog gain
+  * digital gain
+  * number of lines to send to host
+
+
+---
+More info in my blog page: https://BoredomProjects.net/index.php/projects/robot-navigation-using-stereo-vision-part-2
