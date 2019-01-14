@@ -24,6 +24,13 @@
 More info in my blog page: https://BoredomProjects.net/index.php/projects/robot-navigation-using-stereo-vision-part-2
 
 ---
+### Hardware
+Altium Designer-based hardware design project: https://github.com/icboredman/TeensyCam-HW
+
+### Software
+ROS node running on host computer: https://github.com/icboredman/camera_node
+
+---
 In addition to the referenced LICENSE file, the following notice is applicable to components included as part of NXP SDK code:
 
 >This is a free software and is opened for education, research and commercial developments under license policy of following terms:
